@@ -5,6 +5,11 @@
 #include <cstring>
 #include <cstdio>
 #include <string>
+#if defined(_WIN32)
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
 
 namespace {
 
@@ -712,14 +717,35 @@ static const char kXptrDoc[] =
     "<doc><intro/><section id='target1'>first</section>"
     "<section id='target2'>second</section><outro/></doc>";
 
-/* Include kXptrDoc with the given xi:include markup; return the
- * spliced child's name (or attr value). */
-static std::string splice(const char* include_xml, const char* attr = nullptr) {
-    const char* doc_path = "/tmp/leptris_xptr_doc.xml";
-    write_file(doc_path, kXptrDoc, strlen(kXptrDoc));
+/* #1018: gtest_discovered cases run as separate ctest processes;
+ * concurrent -jN runs must not share /tmp fixture paths (the
+ * write/include/remove windows raced across processes). Every
+ * process names its own files — pid, not thread::id (thread ids
+ * are per-process namespaces and hash identically across
+ * processes, which kept the collision). */
+static std::string xptr_unique_path(const char* base, const char* ext) {
+#if defined(_WIN32)
+    long pid = (long)_getpid();
+#else
+    long pid = (long)getpid();
+#endif
+    return std::string("/tmp/") + base + "_" +
+           std::to_string(pid) + "." + ext;
+}
+
+/* Include kXptrDoc with the given xi:include markup ({DOC}
+ * substitutes this process's doc path); return the spliced
+ * child's name (or attr value). */
+static std::string splice(const std::string& include_xml,
+                          const char* attr = nullptr) {
+    std::string doc_path = xptr_unique_path("leptris_xptr_doc", "xml");
+    std::string markup = include_xml;
+    for (size_t pos; (pos = markup.find("{DOC}")) != std::string::npos;)
+        markup.replace(pos, 5, doc_path);
+    write_file(doc_path.c_str(), kXptrDoc, strlen(kXptrDoc));
 
     std::string xml = std::string("<root xmlns:xi='") + kXiNs + "'>" +
-                      include_xml + "</root>";
+                      markup + "</root>";
     LeptrisStatus st = LEPTRIS_OK;
     LeptrisDocument doc =
         leptris_parse_string(xml.data(), xml.size(), &st);
@@ -737,24 +763,24 @@ static std::string splice(const char* include_xml, const char* attr = nullptr) {
         out = leptris_element_name(child);
     }
     leptris_document_free(doc);
-    remove(doc_path);
+    remove(doc_path.c_str());
     return out;
 }
 
 TEST(XIncludeXpointerForms, HrefFragmentIsShorthand) {
     /* §4: the href fragment is a shorthand pointer -- the element
      * with that ID. */
-    EXPECT_EQ(splice("<xi:include href='/tmp/leptris_xptr_doc.xml#target2'/>"),
+    EXPECT_EQ(splice("<xi:include href='{DOC}#target2'/>"),
               "section");
-    EXPECT_EQ(splice("<xi:include href='/tmp/leptris_xptr_doc.xml#target2'/>", "id"),
+    EXPECT_EQ(splice("<xi:include href='{DOC}#target2'/>", "id"),
               "target2");
 }
 
 TEST(XIncludeXpointerForms, XpointerScheme) {
-    EXPECT_EQ(splice("<xi:include href='/tmp/leptris_xptr_doc.xml'"
+    EXPECT_EQ(splice("<xi:include href='{DOC}'"
                      " xpointer='xpointer(//section[@id=\"target1\"])'/>"),
               "section");
-    EXPECT_EQ(splice("<xi:include href='/tmp/leptris_xptr_doc.xml'"
+    EXPECT_EQ(splice("<xi:include href='{DOC}'"
                      " xpointer='xpointer(//section[@id=\"target1\"])'/>", "id"),
               "target1");
 }
@@ -762,20 +788,20 @@ TEST(XIncludeXpointerForms, XpointerScheme) {
 TEST(XIncludeXpointerForms, ElementSchemeChildSequence) {
     /* element(/1/3): root's first element child is <intro>, its
      * third element child is section#target2. */
-    EXPECT_EQ(splice("<xi:include href='/tmp/leptris_xptr_doc.xml'"
+    EXPECT_EQ(splice("<xi:include href='{DOC}'"
                      " xpointer='element(/1/3)'/>", "id"),
               "target2");
 }
 
 TEST(XIncludeXpointerForms, ElementSchemeNamedStart) {
-    EXPECT_EQ(splice("<xi:include href='/tmp/leptris_xptr_doc.xml'"
+    EXPECT_EQ(splice("<xi:include href='{DOC}'"
                      " xpointer='element(target1)'/>", "id"),
               "target1");
 }
 
 TEST(XIncludeXpointerForms, SchemesTriedLeftToRight) {
     /* First scheme matches nothing; the second wins. */
-    EXPECT_EQ(splice("<xi:include href='/tmp/leptris_xptr_doc.xml'"
+    EXPECT_EQ(splice("<xi:include href='{DOC}'"
                      " xpointer='element(nosuch)xpointer(//outro)'/>"),
               "outro");
 }
@@ -783,10 +809,10 @@ TEST(XIncludeXpointerForms, SchemesTriedLeftToRight) {
 TEST(XIncludeXpointerForms, FragmentAndXpointerTogetherIsResourceError) {
     /* §4: href fragment + xpointer attribute = resource error ->
      * fallback text, not the document. */
-    const char* doc_path = "/tmp/leptris_xptr_doc.xml";
-    write_file(doc_path, kXptrDoc, strlen(kXptrDoc));
+    std::string doc_path = xptr_unique_path("leptris_xptr_doc", "xml");
+    write_file(doc_path.c_str(), kXptrDoc, strlen(kXptrDoc));
     std::string xml = std::string("<root xmlns:xi='") + kXiNs +
-        "'><xi:include href='/tmp/leptris_xptr_doc.xml#target1'"
+        "'><xi:include href='" + doc_path + "#target1'"
         " xpointer='xpointer(//outro)'><xi:fallback>fb</xi:fallback>"
         "</xi:include></root>";
     LeptrisStatus st = LEPTRIS_OK;
@@ -799,14 +825,14 @@ TEST(XIncludeXpointerForms, FragmentAndXpointerTogetherIsResourceError) {
     ASSERT_EQ(leptris_node_get_type(child), LEPTRIS_NODE_TYPE_TEXT);
     EXPECT_STREQ(leptris_text_node_get_content(child), "fb");
     leptris_document_free(doc);
-    remove(doc_path);
+    remove(doc_path.c_str());
 }
 
 TEST(XIncludeXpointerForms, FragmentOnTextIncludeIsResourceError) {
-    const char* txt = "/tmp/leptris_xptr_text.txt";
-    write_file(txt, "plain", 5);
+    std::string txt = xptr_unique_path("leptris_xptr_text", "txt");
+    write_file(txt.c_str(), "plain", 5);
     std::string xml = std::string("<root xmlns:xi='") + kXiNs +
-        "'><xi:include href='/tmp/leptris_xptr_text.txt#frag'"
+        "'><xi:include href='" + txt + "#frag'"
         " parse='text'><xi:fallback>nofrag</xi:fallback></xi:include></root>";
     LeptrisStatus st = LEPTRIS_OK;
     LeptrisDocument doc = leptris_parse_string(xml.data(), xml.size(), &st);
@@ -818,16 +844,16 @@ TEST(XIncludeXpointerForms, FragmentOnTextIncludeIsResourceError) {
     ASSERT_EQ(leptris_node_get_type(child), LEPTRIS_NODE_TYPE_TEXT);
     EXPECT_STREQ(leptris_text_node_get_content(child), "nofrag");
     leptris_document_free(doc);
-    remove(txt);
+    remove(txt.c_str());
 }
 
 TEST(XIncludeXpointerForms, TextEncodingAttributeConvertsToUtf8) {
     /* ISO-8859-1 0xE9 = é (U+00E9, UTF-8 0xC3 0xA9). */
     const char latin1[] = { 'c', 'a', 'f', (char)0xE9 };
-    const char* txt = "/tmp/leptris_xptr_latin1.txt";
-    write_file(txt, latin1, sizeof(latin1));
+    std::string txt = xptr_unique_path("leptris_xptr_latin1", "txt");
+    write_file(txt.c_str(), latin1, sizeof(latin1));
     std::string xml = std::string("<root xmlns:xi='") + kXiNs +
-        "'><xi:include href='/tmp/leptris_xptr_latin1.txt'"
+        "'><xi:include href='" + txt + "'"
         " parse='text' encoding='ISO-8859-1'/></root>";
     LeptrisStatus st = LEPTRIS_OK;
     LeptrisDocument doc = leptris_parse_string(xml.data(), xml.size(), &st);
@@ -846,7 +872,7 @@ TEST(XIncludeXpointerForms, TextEncodingAttributeConvertsToUtf8) {
     bool passthrough = (unsigned char)text[3] == 0xE9 && text[4] == '\0';
     EXPECT_TRUE(converted || passthrough);
     leptris_document_free(doc);
-    remove(txt);
+    remove(txt.c_str());
 }
 
 TEST(XIncludeXpointerForms, BadEncodingIsResourceError) {
