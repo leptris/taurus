@@ -533,6 +533,24 @@ bool Compare(const XNode& x, const ONode& o, std::string* why) {
 
 }  // namespace
 
+
+
+static std::string H5DumpTree(const ONode& n, int depth) {
+    std::string s((size_t)depth * 2, ' ');
+    s += "<" + n.name + " ns='" + n.ns + "' text='" +
+         n.text.substr(0, 24) + "'>\n";
+    for (const auto& c : n.children) s += H5DumpTree(c, depth + 1);
+    return s;
+}
+
+static std::string H5DumpTree(const XNode& n, int depth) {
+    std::string s((size_t)depth * 2, ' ');
+    s += "<" + n.name + " ns='" + n.ns + "' text='" +
+         n.text.substr(0, 24) + "'>\n";
+    for (const auto& c : n.children) s += H5DumpTree(c, depth + 1);
+    return s;
+}
+
 TEST(Html5LibCorpus, TreeConstruction) {
     const char* srcdir = getenv("HTML5LIB_SRC");
     std::string dir = srcdir && *srcdir
@@ -588,6 +606,17 @@ TEST(Html5LibCorpus, TreeConstruction) {
             } else {
                 failed++;
                 failures.push_back(c.id + ": " + why.substr(0, 120));
+            if (getenv("H5DUMP")) {
+                std::string fn2 = "/tmp/h5dump/" + c.id;
+                for (auto& ch : fn2) if (ch == ':') ch = '_';
+                FILE* df = fopen(fn2.c_str(), "w");
+                if (df) {
+                    fprintf(df, "== expected ==\n%s== ours ==\n%s",
+                            H5DumpTree(c.doc, 0).c_str(),
+                            H5DumpTree(ours, 0).c_str());
+                    fclose(df);
+                }
+            }
             }
             leptris_document_free(d);
         }

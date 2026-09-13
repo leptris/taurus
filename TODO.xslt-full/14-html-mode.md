@@ -416,3 +416,24 @@ h_tmpl_content_start. Spec: TemplateFrameAndFramesetDrop. Parity
 784 held. REMAINING template.dat reds (~11): select-in-table (22,
 102), misc rows (71-76), nested/head shapes (91, 106, 108),
 foreignObject (100).
+
+## Update 2026-09-13 (m): template-tail slice 1 — cgroup drops,
+## </template> pop-through — shipped (floor 1206)
+Four template-mode gaps (template.dat 22/71/73/74/76/100): (1) in-
+column-group on a template current node ignores every token but col
+starts (gumbo handle_in_column_group) — colgroup/div/non-ws text
+drop (71/73/74/76; h_tmpl_content_start case + the non-table early
+branch + an h_append text guard); (2) </template> inside select runs
+the in-head rules, not the in-select ignore gate — the select's
+insertion point returns (22); (3) </template> matches only HTML-
+namespace templates and skips the integration-point fence — the
+foreign stack pops wholesale down to the html template and resets
+(100: an SVG template element is foreign content, not an html
+template). Specs TemplateColumnGroupDropsNonColTokens,
+SelectTemplateCloseRestoresSelect, TemplateEndPopsThroughForeignContent.
+Corpus 1200 -> 1206; parity 784 held. NEXT (slice 2): after-</head>
+template re-enters the existing head (106), select-in-table
+close+reprocess (102), sibling placement of non-table tokens over
+tr/tbody in template content (45/91), foster-before-table target in
+template content (108). H5DUMP=1 in the corpus runner now dumps
+expected-vs-ours trees per failed case under /tmp/h5dump/.

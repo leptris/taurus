@@ -2997,6 +2997,9 @@ static int h_tmpl_content_start(HBuilder* b, const char* name) {
                 strcmp(name, "title") != 0)
                 b->tmpl_mode[ti] = H_TPLM_IN_BODY;
         }
+        /* in-column-group: non-table tokens are ignored too
+         * (gumbo handle_in_column_group; template.dat:74). */
+        if (b->tmpl_mode[ti] == H_TPLM_IN_CGROUP) return 1;
         return 5;
     }
     unsigned char m = b->tmpl_mode[ti];
@@ -3021,12 +3024,12 @@ static int h_tmpl_content_start(HBuilder* b, const char* name) {
         if (is_cell) return 0; /* cell in the virtual row context */
         return 1; /* row/group/col with no tr in table scope */
     case H_TPLM_IN_CGROUP:
+        /* gumbo handle_in_column_group: with the template as
+         * current node (not a colgroup), every token but a col
+         * start is a parse error and ignored (template.dat:71-78). */
         if (is_col) return 0;
-        if (is_group) { b->tmpl_mode[ti] = H_TPLM_IN_TABLE; return 0; }
-        if (is_row) { b->tmpl_mode[ti] = H_TPLM_IN_TBODY; return 0; }
-        if (is_cell) { b->tmpl_mode[ti] = H_TPLM_IN_ROW; return 0; }
-        return 0;
-    default: /* H_TPLM_IN_BODY: stray table tags drop */
+        return 1;
+        default: /* H_TPLM_IN_BODY: stray table tags drop */
         return 1;
     }
 }
@@ -3119,6 +3122,26 @@ static void h_append(HBuilder* b, LeptrisNodeRef n) {
                     b->left_initial = 1;
                     break;
                 }
+    }
+    /* #659 in-column-group on a template current node: only col
+     * starts live there; every other token, non-whitespace text
+     * included, is a parse error and ignored (gumbo
+     * handle_in_column_group; html5lib template.dat:76). */
+    if (b->whatwg && b->depth > 0 &&
+        leptris_node_get_type(n) == LEPTRIS_NODE_TYPE_TEXT &&
+        b->tmpl_mode[b->depth - 1] == H_TPLM_IN_CGROUP &&
+        h_ieq_raw(leptris_element_name(b->open[b->depth - 1]),
+                  "template")) {
+        const char* ht = leptris_text_node_get_content(n);
+        int nonws = 0;
+        if (ht)
+            for (const char* hq = ht; *hq; hq++)
+                if (*hq != ' ' && *hq != '\t' &&
+                    *hq != '\n' && *hq != '\r') {
+                    nonws = 1;
+                    break;
+                }
+        if (nonws) return;
     }
     if (b->depth > 0) {
         LeptrisElement top = b->open[b->depth - 1];
@@ -4248,8 +4271,12 @@ static LeptrisDocument html_parse_shared(
                                     break;
                                 }
                         } else if (strcmp(lname, "option") != 0 &&
+
                                    strcmp(lname, "optgroup") != 0 &&
-                                   strcmp(lname, "select") != 0) {
+
+                                   strcmp(lname, "select") != 0 &&
+
+                                   strcmp(lname, "template") != 0) {
                             p = q;
                             text = p;
                             continue;
@@ -4263,7 +4290,16 @@ static LeptrisDocument html_parse_shared(
                          * HTML slots stay exact lowercase. */
                         int tag_match = 0;
                         if (on) {
-                            if (b.open_ns[d - 1] != H_NS_HTML) {
+                            if (b.whatwg &&
+                                strcmp(lname, "template") == 0) {
+                                /* </template> follows the in-head rules: only an
+                                 * HTML-namespace template matches - an SVG
+                                 * template element is foreign content
+                                 * (template.dat:100). */
+                                tag_match =
+                                    b.open_ns[d - 1] == H_NS_HTML &&
+                                    strcmp(on, "template") == 0;
+                            } else if (b.open_ns[d - 1] != H_NS_HTML) {
                                 size_t ol = strlen(on);
                                 tag_match = ol == nlen;
                                 for (size_t i = 0;
@@ -4282,7 +4318,8 @@ static LeptrisDocument html_parse_shared(
                              * target OUT OF SCOPE — the tag is
                              * ignored (13.2.4.2 boundary list). */
                             int fenced = 0;
-                            if (b.whatwg) {
+                            if (b.whatwg &&
+                                strcmp(lname, "template") != 0) {
                                 for (size_t k = b.depth; k > d; k--)
                                     if (h_is_int_point(&b, k - 1)) {
                                         fenced = 1;
