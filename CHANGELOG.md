@@ -1,5 +1,19 @@
 ## [Unreleased]
 
+## [1.9.156] - 2026-09-13
+
+### Added
+
+- template cgroup drops + </template> pop-through (corpus 1200 -> 1206) (html)
+
+### Fixed
+
+- document-death sweep never writes element headers (XInclude adopted pools) (dom)
+- ASAN-clean entry-death spec; sweep returns removal count (dom)
+- root-doc map entries die with their document (#1038) (dom)
+
+
+
 ## [1.9.155] - 2026-09-13
 ### Fixed
 

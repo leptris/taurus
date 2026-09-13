@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(leptris
-    VERSION 1.9.155
+    VERSION 1.9.156
     DESCRIPTION "Fast XML parser and XPath evaluator in pure C"
     LANGUAGES C CXX
 )
