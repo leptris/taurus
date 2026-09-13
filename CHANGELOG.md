@@ -4,7 +4,17 @@
 
 ### Added
 
-- leptris_element_create_child — fused create+append (api)
+- **`leptris_element_create_child(parent, name)` (API)** — the
+  fused create+append in one call: one document resolution, one
+  public entry, the single-call builder twin of pugixml's
+  `append_child(name)`. Tree semantics identical to the two-call
+  pair (QName splits, namespace backpointer resolution, append
+  rules, cache invalidations); spec pins tree-equality against the
+  pair. Measured note (lane 18 verdict, honest): identical wall
+  time to the two-call path on this machine — the cross-call
+  frames were already free, and the remaining append cost is the
+  safety semantics (validation, COW versioning, doc resolution),
+  not call overhead.
 
 
 
