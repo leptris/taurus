@@ -13,6 +13,7 @@
 extern "C" {
 #include "compact.h"
 #include "element.h"
+#include <string>
 }
 
 #include <cstring>
@@ -21,6 +22,56 @@ extern "C" {
 #include <cstdint>
 
 namespace {
+
+TEST(AttributeInlineValue, SmallValuesStoreInlineAndRoundTrip) {
+    /* lane18 S1: values <= 7 bytes must store INLINE in the
+     * attribute slot (zero pool allocation per overwrite); larger
+     * values keep the heap view. Transitions both ways must hold
+     * the public value contract. */
+    LeptrisDocument d = leptris_document_create();
+    ASSERT_TRUE(d);
+    LeptrisElement r = leptris_element_create(d, "r");
+    leptris_document_set_root(d, r);
+
+    leptris_element_set_attribute(r, "k", "short");
+    struct leptris_attribute* a =
+        leptris_element_get_first_attribute(r);
+    ASSERT_TRUE(a);
+    EXPECT_TRUE(leptris_attr_value_is_inline(a));
+    EXPECT_EQ(std::string(leptris_attr_value_sv(a).data,
+                      leptris_attr_value_sv(a).length),
+          "short");
+
+    /* exactly 7 bytes: still inline */
+    leptris_element_set_attribute(r, "k", "1234567");
+    a = leptris_element_get_first_attribute(r);
+    EXPECT_TRUE(leptris_attr_value_is_inline(a));
+    EXPECT_EQ(std::string(leptris_attr_value_sv(a).data,
+                      leptris_attr_value_sv(a).length),
+              "1234567");
+
+    /* 8 bytes: spills to heap, value correct */
+    leptris_element_set_attribute(r, "k", "12345678");
+    a = leptris_element_get_first_attribute(r);
+    EXPECT_FALSE(leptris_attr_value_is_inline(a));
+    EXPECT_EQ(std::string(leptris_attr_value_sv(a).data,
+                      leptris_attr_value_sv(a).length),
+              "12345678");
+
+    /* shrink back: inline again */
+    leptris_element_set_attribute(r, "k", "tiny");
+    a = leptris_element_get_first_attribute(r);
+    EXPECT_TRUE(leptris_attr_value_is_inline(a));
+    EXPECT_EQ(std::string(leptris_attr_value_sv(a).data,
+                      leptris_attr_value_sv(a).length),
+          "tiny");
+
+    /* NULL clears; the public read yields the empty string */
+    leptris_element_set_attribute(r, "k", NULL);
+    EXPECT_EQ(leptris_attr_value_sv(a).length, (size_t)0);
+
+    leptris_document_free(d);
+}
 
 TEST(CompactAllocator, ParsesMultipleDocumentsWithoutLeak) {
     /* The overflow table is reused across documents within a thread.

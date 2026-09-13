@@ -74,12 +74,13 @@ struct leptris_attribute {
      * 40 bytes: 16 + 16 + 8-byte packed tail (round 19). */
 
     LeptrisStringView name_view;
-    /* #1038 lane18 S1: values <= 15 bytes store INLINE in this
-     * 16-byte slot (zero allocation on overwrite); longer values
-     * keep the heap view. The union field name (value, not
-     * value_view) is deliberate: the compiler finds every reader.
-     * Flag = top bit of heap.length; inline bytes are NUL-
-     * terminated at [len]. */
+    /* lane18 S1: values <= 7 bytes store INLINE in this 16-byte
+     * slot (zero allocation on overwrite); longer values keep the
+     * heap view. The union field name (value, not value_view) is
+     * deliberate: the compiler finds every reader. Layout: value
+     * bytes + NUL occupy [0..7]; heap.length (bytes 8-15) holds
+     * FLAG|len for the inline form — value content NEVER overlaps
+     * the length field. */
     union {
         LeptrisStringView heap;
         char inline_value[16];
@@ -130,7 +131,7 @@ int32_t ns_cache_off;
      * bound dead — 40 was the last unmeasured point on the axis. */
 };
 #define LEPTRIS_ATTR_VALUE_INLINE_BIT ((size_t)1 << 63)
-#define LEPTRIS_ATTR_VALUE_MAX_INLINE 15
+#define LEPTRIS_ATTR_VALUE_MAX_INLINE 7
 
 static inline LeptrisStringView leptris_attr_value_sv(
     const struct leptris_attribute* a) {
