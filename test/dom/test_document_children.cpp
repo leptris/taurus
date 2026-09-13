@@ -198,3 +198,47 @@ TEST(DocumentChildren, SetRootSplicesChain) {
     ASSERT_EQ((LeptrisElement)n, second);   /* new root at old slot */
     leptris_document_free(doc);
 }
+
+/* #1032: document-level comments parse and serialize (#578) but had
+ * no writer — the add_pi twin appends at the epilog. */
+TEST(DocumentChildren, AddCommentAppendsEpilogAndRoundTrips) {
+    LeptrisStatus st = LEPTRIS_OK;
+    const char xml[] = "<root/>";
+    LeptrisDocument doc = leptris_parse_string(xml, std::strlen(xml), &st);
+    ASSERT_NE(doc, nullptr);
+    ASSERT_EQ(leptris_document_comment_count(doc), 0u);
+
+    LeptrisNodeRef n = leptris_document_add_comment(doc, " tail ");
+    ASSERT_NE(n, nullptr);
+    EXPECT_EQ(leptris_node_get_type(n), LEPTRIS_NODE_TYPE_COMMENT);
+    EXPECT_EQ(leptris_document_comment_count(doc), 1u);
+    EXPECT_STREQ(leptris_document_comment_content(doc, 0), " tail ");
+
+    char* out = leptris_document_serialize(doc, nullptr);
+    ASSERT_NE(out, nullptr);
+    EXPECT_STREQ(out, "<root/><!-- tail -->") << out;
+    leptris_free_string(out);
+    leptris_document_free(doc);
+}
+
+TEST(DocumentChildren, AddCommentOnRootlessDocument) {
+    LeptrisDocument doc = leptris_document_create();
+    ASSERT_NE(doc, nullptr);
+    LeptrisNodeRef n = leptris_document_add_comment(doc, "note");
+    ASSERT_NE(n, nullptr);
+    LeptrisNodeRef first = leptris_node_first_child(
+        leptris_document_node(doc));
+    ASSERT_NE(first, nullptr);
+    EXPECT_EQ(first, n);
+    EXPECT_EQ(leptris_document_comment_count(doc), 1u);
+
+    LeptrisElement root = leptris_element_create(doc, "root");
+    ASSERT_EQ(leptris_document_set_root(doc, root), LEPTRIS_OK);
+    /* The comment was first in the chain — it stays in the PROLOG
+     * slot ahead of the root after the splice. */
+    char* out = leptris_document_serialize(doc, nullptr);
+    ASSERT_NE(out, nullptr);
+    EXPECT_STREQ(out, "<!--note--><root/>") << out;
+    leptris_free_string(out);
+    leptris_document_free(doc);
+}

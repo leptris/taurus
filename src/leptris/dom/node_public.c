@@ -225,6 +225,23 @@ LEPTRIS_API LeptrisNodeRef leptris_document_add_pi(LeptrisDocument doc,
     return n;
 }
 
+/* #1032: the add_pi twin for comments — document-level comments
+ * parse and serialize (#578) but had no writer. Appends at the END
+ * of the document children chain (epilog, after the root element):
+ * the Document#add_child parity moxml asks for, so rebuilding a
+ * parsed `<root/><!-- tail -->` round-trips. */
+LEPTRIS_API LeptrisNodeRef leptris_document_add_comment(
+    LeptrisDocument doc, const char* content) {
+    if (!doc) return NULL;
+    LeptrisNodeRef n = leptris_comment_node_create(doc, content);
+    if (!n) return NULL;
+    LeptrisNode* tail = (LeptrisNode*)doc->doc_children_tail;
+    if (tail) leptris_node_set_next_sibling(tail, (LeptrisNode*)n);
+    else doc->doc_children_head = n;
+    doc->doc_children_tail = n;
+    return n;
+}
+
 static LeptrisDocument node_public_document(LeptrisNodeRef node) {
     if (!node) return NULL;
     if (node->type == LEPTRIS_NODE_TYPE_ELEMENT) {
