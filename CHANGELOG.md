@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+## [1.9.151] - 2026-09-13
+
+### Performance
+
+- namebp-authoritative creation — create 19.5 -> 6.6 ns, append row 390 -> 262 us (dom)
+
+
+
 ## [1.9.150] - 2026-09-13
 
 ### Performance
