@@ -1420,6 +1420,43 @@ TEST(HtmlParse, TemplateFrameAndFramesetDrop) {
               "</head><body/></html>");
 }
 
+TEST(HtmlParse, TemplateColumnGroupDropsNonColTokens) {
+    /* gumbo handle_in_column_group: with the template as current
+     * node (not a colgroup), every token but a col start is a
+     * parse error and ignored — colgroup, div and non-whitespace
+     * text all vanish (html5lib template.dat:71/73/74/76). */
+    EXPECT_EQ(Html("<body><template><col><colgroup>"),
+              "<template><col/></template>");
+    EXPECT_EQ(Html("<body><template><col><colgroup></template></body>"),
+              "<template><col/></template>");
+    EXPECT_EQ(Html("<body><template><col><div>"),
+              "<template><col/></template>");
+    EXPECT_EQ(Html("<body><template><col>Hello"),
+              "<template><col/></template>");
+}
+
+TEST(HtmlParse, SelectTemplateCloseRestoresSelect) {
+    /* </template> inside a select runs the in-head rules (not the
+     * in-select ignore-everything gate): the select's insertion
+     * point returns, so a following <option> is a select child
+     * (html5lib template.dat:22). */
+    EXPECT_EQ(Html("<select><template></template><option></select>"),
+              "<select><template/><option/></select>");
+}
+
+TEST(HtmlParse, TemplateEndPopsThroughForeignContent) {
+    /* An SVG-namespaced <template> is foreign content, not an html
+     * template: </template> (in-head rules) pops through the whole
+     * foreign stack down to the html template and resets, so the
+     * trailing div is body content (html5lib template.dat:100). */
+    EXPECT_EQ(Html("<template><svg><foo><template><foreignObject>"
+                   "<div></template><div>"),
+              "<html><head><template><svg><foo><template>"
+              "<foreignObject><div/></foreignObject></template>"
+              "</foo></svg></template></head><body><div/>"
+              "</body></html>");
+}
+
 TEST(HtmlParse, TemplateInsertionModes) {
     /* The per-template insertion-mode machine (13.2.6.4.10 pushes
      * in-table/in-table-body/in-row; the reprocess chains decide
