@@ -48,6 +48,21 @@ static int x10_has_3x_syntax(const char* e) {
         if ((p == e || !isalnum((unsigned char)p[-1])) &&
             strncmp(p, "function", 8) == 0 &&
             (p[8] == '(' || p[8] == ' ')) return 1;
+        /* map/array constructors: the keyword at a name boundary
+         * followed by optional whitespace and '{' — a '{' can
+         * never follow a name in valid 1.0 syntax (the { } forms
+         * are 3.x-only; square arrays are caught by their '?'
+         * lookups or fail 1.0 predicate parsing anyway). */
+        if (p == e || !isalnum((unsigned char)p[-1])) {
+            size_t kw = (strncmp(p, "map", 3) == 0) ? 3
+                      : (strncmp(p, "array", 5) == 0) ? 5 : 0;
+            if (kw) {
+                const char* b = p + kw;
+                while (*b == ' ' || *b == '\t' || *b == '\n' || *b == '\r')
+                    b++;
+                if (*b == '{') return 1;
+            }
+        }
     }
     return q == '`';   /* unterminated template is 3.x anyway */
 }

@@ -436,6 +436,8 @@ TEST(PublicSurface, VersionedXPathEval) {
     const char* v31_only[] = {
         "let $x := 1 return $x + 1",
         "map{'a':1}?a",
+        "map {'a': 1}",   /* bare map constructor (no lookup) */
+        "array{//b}",     /* bare array constructor */
         "//b ! string()",
         "//b => count()",
     };
