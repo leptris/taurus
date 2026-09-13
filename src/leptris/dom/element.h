@@ -93,7 +93,7 @@ struct leptris_attribute {
      * Round 19: was a raw pointer — now an int32 offset so the
      * struct fits 40 bytes (compact.c overflow-table fallback
      * covers >2GB spans). */
-    
+
 
 int32_t ns_cache_off;
 
