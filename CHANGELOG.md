@@ -4,7 +4,18 @@
 
 ### Performance
 
-- namebp-authoritative creation — create 19.5 -> 6.6 ns, append row 390 -> 262 us (dom)
+- **DOM create path 19.5 → 6.6 ns/op; append row 390 → 262 µs
+  (3.5× → 2.30× vs pugixml at the arc's start/today)**: public
+  element creation is namebp-authoritative — the doc backpointer
+  stamped ahead of the name is the resolution path (get_document
+  already consulted it on map miss), so the per-element root-map
+  registration was pure redundancy. Two correctness companions
+  fixed the long-standing #905 elision crash class at its root:
+  QName splits now RE-STAMP the backpointer into a fresh slot (was:
+  clear the flag and rely on registration), and set_root validates
+  via get_document instead of the raw map lookup (which rejected
+  every unregistered element). Pool-fallback create paths keep
+  registering. Spec: MutNameBackpointer.PrefixedSplitRestampsBackpointer.
 
 
 
