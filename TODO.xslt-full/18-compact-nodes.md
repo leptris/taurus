@@ -129,3 +129,15 @@ ensure_promoted on mut-native docs. (S3) attr-heavy 4ns/attr: batch entity-decod
 per-attr name lowering when name is already-lower fast-path check. (S4) text-small 12ns/node:
 inline <=15B PCData into the text node header (single pool alloc -> zero). Order by gap: S1, S2,
 S4, S3. All four must hold the 17-leg suite + corpus/parity floors.
+
+## S1 implementation plan (set-attr 510 -> <144us; profiled 2026-09-13: 2-3 get_document
+climbs per overwrite + pool_alloc per value + hash on walk path; pool_alloc only ~6%)
+1. element.h:66 leptris_attribute: value_view (16B StringView) -> union {heap{ptr,len|FLAG};
+   char inline[16]}; inline when len<=15 (len high bit = flag). Accessors
+   leptris_attr_value_sv() + attr_value_set(attr,pool,s,len).
+2. Convert ~96 value_view readers (element.c 35, element_modify.c 26, element_query.c 15,
+   xpath vm 5, evaluator_axes 4, c14n 4, leptris.c 4, serialize.c 3) to the accessor.
+3. set_attribute: hoist ONE doc resolution (get_pool re-resolves internally — use doc->pool),
+   lazy hash (index path only), update path attr_value_set (inline = zero alloc).
+4. Gates: /tmp twins row (<144us), all four rows held or improved, full ctest, xslt 205,
+   html5lib 1206, parity 784, 17 legs. Twins now in benchmarks/twins/ (survive /tmp wipes).
