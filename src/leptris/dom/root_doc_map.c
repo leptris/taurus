@@ -164,7 +164,13 @@ size_t leptris_root_doc_unregister_doc(struct leptris_document* doc) {
                 *pp = freed->next;
                 freed->next = g_free_list;
                 g_free_list = freed;
-                rootmap_set(freed->root, 0);
+                /* The bucket chain is authoritative here — do NOT
+                 * rootmap_set(freed->root, 0): XInclude-adopted
+                 * subtrees can leave entries whose element storage
+                 * died with an ALREADY-freed child pool, and the
+                 * header mark is only a hint that register and
+                 * unregister both handle benignly on fresh
+                 * elements (create memsets the bit clear). */
                 removed++;
                 continue;
             }
