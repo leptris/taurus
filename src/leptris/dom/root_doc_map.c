@@ -227,8 +227,13 @@ void leptris_root_doc_memo_invalidate(const struct leptris_document* doc) {
 struct leptris_document* leptris_element_get_document(LeptrisElement elem) {
     if (!elem) return NULL;
     LeptrisElement cur = elem;
+    /* lane18 S2: hoist the TLS memo read (tlv_get_addr was the
+     * hottest site in the create+append profile). Bisect note: the
+     * fused name pass is reverted — this push isolates the TLS
+     * hoist against the macos small-doc parse-ratio guard. */
+    LeptrisElement memo_root = g_memo_root;
     for (;;) {
-        if (cur == g_memo_root) return g_memo_doc;
+        if (cur == memo_root) return g_memo_doc;
         LeptrisElement parent = leptris_elem_parent(cur);
         if (!parent) break;
         cur = parent;
