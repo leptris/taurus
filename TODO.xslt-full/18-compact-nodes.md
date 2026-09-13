@@ -111,3 +111,21 @@ walk -> slot cache-back; set_prefix creates the cache initing only
       semantics, one call, likely lands ~14-16ns ≈ 1.3x),
   (c) conditional fast-path via a doc flag (opt-out of COW/
       validation for trusted builders). USER CALL.
+
+## 2026-09-13: ALL-SHAPES mandate — fresh v1.9.156 board (twins in /tmp/zc.c,zp.cpp,mz.c,mz.cpp; /tmp/pugirace worktree, Release, best-of-400)
+
+| shape | leptris | pugixml | gap |
+|---|---|---|---|
+| attr-heavy-5k parse | 55us | 35us | 1.57x |
+| text-small-1k parse | 26us | 14us | 1.86x (NEW loss shape: tiny PCData favors pugi inlined nodes) |
+| create+append 10k | 247us | 113us | 2.19x |
+| set-attr 10k | 510us | 144us | 3.54x |
+| create per-op | 6.6ns | 11.6ns | AHEAD |
+
+Levers (sized): (S1) set-attr 51->14ns/op: attr linked-list (40B stride, mut_attr_carve) -> per-element
+INLINE attr array; dedupe walk is the hot cost + index invalidation per set. (S2) create+append
+24.7->11.3ns pair: begin_mutation/end_mutation bracket deferring index invalidation + skipping
+ensure_promoted on mut-native docs. (S3) attr-heavy 4ns/attr: batch entity-decode scan + drop
+per-attr name lowering when name is already-lower fast-path check. (S4) text-small 12ns/node:
+inline <=15B PCData into the text node header (single pool alloc -> zero). Order by gap: S1, S2,
+S4, S3. All four must hold the 17-leg suite + corpus/parity floors.
