@@ -1,13 +1,9 @@
 ## [Unreleased]
 
 ## [1.9.157] - 2026-09-13
+### Changed
 
-### Performance
-
-- inline small attribute values — set-attr 510 -> 305us (3.54x -> 2.12x vs pugixml) (dom)
-
-
-
+- **Performance: attribute values <= 7 bytes now store INLINE in the attribute's own slot** — zero pool allocation per `set_attribute` overwrite and per fresh small-value insert. The attribute value field became a union (value bytes + NUL in [0..7], the length|flag in the length field's bytes [8..15]; content never overlaps the length field), and every value reader across the tree (~110 sites in 14 files) now goes through the `leptris_attr_value_sv()` accessor. The overwrite path also resolves the document once per call (previously it re-climbed `get_document`/`get_pool` twice) and computes the attr-index hash lazily. Measured on the pugixml twin harnesses (best-of-400, committed under `benchmarks/twins/`): **set-attribute 10k 510 -> 305us** vs pugixml 144us — the gap narrows from 3.54x to **2.12x**; create+append, attr-heavy and text-heavy rows all held. Spec: `AttributeInlineValue.SmallValuesStoreInlineAndRoundTrip` (RED pre-change; it also caught the unsound 15-byte draft, where the flag bytes clobbered value content past 8 — capacity 7 is the sound design for this slot). Lane 18 "beat pugixml in all shapes" continues: mutation bracket (append row), inline PCData (small-text parse row), batched entity decode (attr-heavy row).
 ## [1.9.156] - 2026-09-13
 ### Fixed
 
