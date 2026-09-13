@@ -153,7 +153,16 @@ LeptrisElement leptris_element_create(LeptrisDocument doc, const char* name) {
          * Same init contract as leptris_element_create_with_view
          * (memset-zero + type/name/name_hash/name_len). Falls back
          * to the plain pool path when a block can't be allocated. */
-        size_t name_len = strlen(name);
+        /* lane18 S2: one fused pass — length + FNV-1a hash (the
+         * separate strlen and hash walks were two extra passes per
+         * create in the append profile). Same loop order as
+         * leptris_name_hash_compute (XOR then MUL). */
+        size_t name_len = 0;
+        uint16_t name_nh = 0x811C;
+        for (const char* np = name; *np; np++) {
+            name_nh = (uint16_t)((name_nh ^ (unsigned char)*np) * 0x0193);
+            name_len++;
+        }
         elem = mut_elem_carve(doc);
         if (elem) {
             char* name_copy = mut_name_carve(doc, name, name_len);
@@ -162,7 +171,7 @@ LeptrisElement leptris_element_create(LeptrisDocument doc, const char* name) {
                 elem->base.type = LEPTRIS_NODE_TYPE_ELEMENT;
                 elem->header.flags |= LEPTRIS_NAMEBP_FLAG;
                 elem->name = name_copy;
-                elem->name_hash = leptris_name_hash_compute(name_copy);
+                elem->name_hash = name_nh;
                 elem->name_len = (name_len > 254) ? 0xFF : (uint8_t)name_len;
                 /* Round 20 contract: create registers every new element
                  * so pre-attach ops (set_root validation, get_document
