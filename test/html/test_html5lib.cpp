@@ -630,7 +630,7 @@ TEST(Html5LibCorpus, TreeConstruction) {
      * <template> placement, 623 structural head/body, 556
      * DOCTYPE, 295 adoption agency, 294 foster, 285 two-mode
      * split, 193 before it). */
-    EXPECT_GE(passed, (size_t)1197);
+    EXPECT_GE(passed, (size_t)1200);
 
     /* ---- Nokogiri PARITY (#659's actual target) ----
      *
