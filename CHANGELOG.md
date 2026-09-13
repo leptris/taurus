@@ -1,13 +1,9 @@
 ## [Unreleased]
 
 ## [1.9.154] - 2026-09-13
+### Fixed
 
-### Added
-
-- template frame/frameset tokens drop (corpus 1197 -> 1200) (html)
-
-
-
+- **HTML (WHATWG mode): `frame`/`frameset` start tags inside `<template>` content are dropped.** The "in template" insertion mode's anything-else clause (WHATWG HTML 13.2.6.4.10) routes them to the in-body rules, which ignore them. html5lib `template.dat` corpus 1197 -> 1200 (rows 41/67/93); new spec `TemplateFrameAndFramesetDrop` (3 shapes); Nokogiri parity floor 784 held.
 ## [1.9.153] - 2026-09-13
 
 ### Added
