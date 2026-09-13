@@ -248,9 +248,13 @@ LEPTRIS_API LeptrisStatus leptris_document_set_root(LeptrisDocument doc,
     if (leptris_elem_parent(root))
         return LEPTRIS_ERROR_INVALID_ARG;
 
-    /* Cross-document attach would dangle the source pool on free. */
-    extern struct leptris_document* leptris_root_doc_lookup(LeptrisElement root);
-    if (leptris_root_doc_lookup(root) != doc)
+    /* Cross-document attach would dangle the source pool on free.
+     * Lane 18 P1: resolve via get_document (map + namebp fallback)
+     * — public mut-block creates carry no map entry, and the raw
+     * lookup rejected every one of them. */
+    extern struct leptris_document* leptris_element_get_document(
+        LeptrisElement elem);
+    if (leptris_element_get_document(root) != doc)
         return LEPTRIS_ERROR_INVALID_ARG;
 
     doc->root = root;

@@ -170,7 +170,14 @@ LeptrisElement leptris_element_create(LeptrisDocument doc, const char* name) {
                  * block fast path omitted it, leaving detached elements
                  * unresolvable until attached. Register is O(1) with
                  * the ROOTMAP_FLAG fast-out, so no measurable cost. */
-                leptris_root_doc_register(elem, doc);
+                /* Lane 18 P1: NO map registration — mut_name_carve
+                 * stamped the doc backpointer and header bit 6, and
+                 * get_document resolves namebp BEFORE the map, so
+                 * the entry is pure redundancy here (the #905 class
+                 * only broke paths where namebp was NOT guaranteed;
+                 * this branch guarantees it). The pool fallbacks
+                 * below keep registering — their names carry no
+                 * backpointer. */
                 /* Mut-block copy is writable: a QName splits in
                  * place (#846). */
                 leptris_elem_split_qname(elem, doc->pool);
