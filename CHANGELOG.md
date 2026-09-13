@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+## [1.9.152] - 2026-09-13
+
+### Performance
+
+- element-typed tail store in append (P3 rider); drop no-op last_child calls (dom)
+
+
+
 ## [1.9.151] - 2026-09-13
 
 ### Performance
