@@ -208,6 +208,21 @@ LeptrisElement leptris_element_create(LeptrisDocument doc, const char* name) {
 /**
  * Append child element (Public API)
  */
+/* Lane 18: the fused create+append. Shares the exact create and
+ * append internals with the two-call pair — one doc resolution and
+ * one public frame instead of two of each. */
+LeptrisElement leptris_element_create_child(LeptrisElement parent, const char* name) {
+    if (!parent || !name) return NULL;
+    struct leptris_document* doc = leptris_element_get_document(parent);
+    if (!doc || !doc->pool) return NULL;
+    LeptrisElement elem = leptris_element_create(doc, name);
+    if (!elem) return NULL;
+    leptris_element_append_child_internal_doc(parent, (LeptrisNode*)elem, doc);
+    leptris_element_invalidate_child_cache(parent);
+    leptris_element_index_invalidate(doc);
+    return elem;
+}
+
 LeptrisStatus leptris_element_append_child(LeptrisElement parent, LeptrisElement child) {
     if (!parent || !child) return LEPTRIS_ERROR_NULL_ARG;
 

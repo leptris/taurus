@@ -1851,6 +1851,40 @@ TEST(DomBasics, RawAttributesIncludeXmlnsInSourceOrder) {
  * must still deliver every entry in source order, with xmlns
  * declarations interleaved and the prefixed attr's owner-stamped
  * cache intact (the parse-inline #542 path). */
+TEST(DomBasics, CreateChildMatchesCreateAppendPair) {
+    /* Lane 18: the fused create_child is the apples-to-apples twin
+     * of pugixml's append_child(name) — one call, one doc
+     * resolution. Its tree must be IDENTICAL to the two-call pair. */
+    LeptrisDocument d1 = leptris_document_create();
+    LeptrisDocument d2 = leptris_document_create();
+    ASSERT_NE(d1, nullptr);
+    ASSERT_NE(d2, nullptr);
+    LeptrisElement r1 = leptris_element_create(d1, "r");
+    LeptrisElement r2 = leptris_element_create(d2, "r");
+    ASSERT_EQ(leptris_document_set_root(d1, r1), LEPTRIS_OK);
+    ASSERT_EQ(leptris_document_set_root(d2, r2), LEPTRIS_OK);
+
+    LeptrisElement a = leptris_element_create(d1, "x");
+    leptris_element_append_child(r1, a);
+    LeptrisElement b = leptris_element_create_child(r2, "x");
+    ASSERT_NE(b, nullptr);
+    EXPECT_STREQ(leptris_element_name(b), "x");
+    EXPECT_EQ(leptris_element_parent(b), r2);
+    EXPECT_EQ(leptris_element_child_count(r2), leptris_element_child_count(r1));
+    /* Prefixed name splits + stays resolvable. */
+    LeptrisElement p1 = leptris_element_create_child(r2, "svg:rect");
+    ASSERT_NE(p1, nullptr);
+    EXPECT_STREQ(leptris_element_name(p1), "rect");
+    EXPECT_EQ(leptris_document_root(d2) && p1 != NULL, true);
+    EXPECT_EQ(leptris_element_child_count(r2), 2u);
+    char* s2 = leptris_document_serialize(d2, NULL);
+    ASSERT_NE(s2, nullptr);
+    EXPECT_STREQ(s2, "<r><x/><svg:rect/></r>");
+    leptris_free_string(s2);
+    leptris_document_free(d1);
+    leptris_document_free(d2);
+}
+
 TEST(DomBasics, AttributeSetBeyondUint8CountStillDedupes) {
     /* attr_count is uint8_t and wraps past 255; the walk-vs-index
      * decision must not oscillate with the wrapped count (lane 18:
