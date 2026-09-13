@@ -351,6 +351,14 @@ LeptrisMemoryPool* leptris_element_get_pool(LeptrisElement elem);
  * cost ~11ns per append. */
 #define LEPTRIS_NAMEBP_FLAG 0x40u
 
+/* Lane 18: header.flags bit 5 — "this element's attributes are
+ * doc-index-served". elem->attr_count is uint8_t and wraps past
+ * 255; the walk-vs-index threshold must not oscillate with the
+ * wrapped count or high-attr elements periodically walk the whole
+ * chain (O(N) per set). Once set, never cleared: removals leave
+ * tombstones in the index and lookups stay correct. */
+#define LEPTRIS_ATTR_INDEXED_FLAG 0x20u
+
 static inline int leptris_elem_has_namebp(const LeptrisElement e) {
     return (e->header.flags & LEPTRIS_NAMEBP_FLAG) != 0;
 }

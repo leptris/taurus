@@ -819,7 +819,12 @@ LeptrisStatus leptris_element_set_attribute(LeptrisElement elem, const char* nam
     struct leptris_attr_index* set_ix = NULL;
     size_t set_slot = (size_t)-1;
     struct leptris_attribute* existing;
-    if (set_doc && elem->attr_count > ATTR_INDEX_WALK_MAX) {
+    if (set_doc &&
+        ((elem->header.flags & LEPTRIS_ATTR_INDEXED_FLAG) != 0 ||
+         elem->attr_count > ATTR_INDEX_WALK_MAX)) {
+        /* Lane 18: the flag latches — attr_count wraps at 255 and
+         * must never flip a high-attr element back to the walk. */
+        elem->header.flags |= LEPTRIS_ATTR_INDEXED_FLAG;
         existing = attr_index_lookup(set_doc, elem, name, set_name_len,
                                      set_name_hash, &set_ix, &set_slot);
     } else {
