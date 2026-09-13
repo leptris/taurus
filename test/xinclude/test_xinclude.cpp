@@ -5,7 +5,11 @@
 #include <cstring>
 #include <cstdio>
 #include <string>
+#if defined(_WIN32)
+#include <process.h>
+#else
 #include <unistd.h>
+#endif
 
 namespace {
 
@@ -720,8 +724,13 @@ static const char kXptrDoc[] =
  * are per-process namespaces and hash identically across
  * processes, which kept the collision). */
 static std::string xptr_unique_path(const char* base, const char* ext) {
+#if defined(_WIN32)
+    long pid = (long)_getpid();
+#else
+    long pid = (long)getpid();
+#endif
     return std::string("/tmp/") + base + "_" +
-           std::to_string((long)getpid()) + "." + ext;
+           std::to_string(pid) + "." + ext;
 }
 
 /* Include kXptrDoc with the given xi:include markup ({DOC}
