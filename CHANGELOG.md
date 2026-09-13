@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+## [1.9.157] - 2026-09-13
+
+### Performance
+
+- inline small attribute values — set-attr 510 -> 305us (3.54x -> 2.12x vs pugixml) (dom)
+
+
+
 ## [1.9.156] - 2026-09-13
 ### Fixed
 
