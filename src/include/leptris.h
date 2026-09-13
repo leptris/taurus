@@ -1132,6 +1132,20 @@ LEPTRIS_API LeptrisNodeRef leptris_document_add_pi(LeptrisDocument doc,
                                                    const char* data);
 
 /**
+ * Append a document-level comment (epilog position: after the root
+ * element). The writer twin of leptris_document_comment_count /
+ * leptris_document_comment_content (#578 readers) and the
+ * leptris_document_add_pi shape (#1032).
+ *
+ * @param doc Document
+ * @param content Comment content (no `<!--` `-->`; NULL = empty)
+ * @return the new comment node, or NULL on invalid args / allocation
+ *         failure
+ */
+LEPTRIS_API LeptrisNodeRef leptris_document_add_comment(
+    LeptrisDocument doc, const char* content);
+
+/**
  * Get the DOCTYPE's root element name (the name following
  * `<!DOCTYPE`).
  *
