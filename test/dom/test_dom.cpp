@@ -1851,6 +1851,29 @@ TEST(DomBasics, RawAttributesIncludeXmlnsInSourceOrder) {
  * must still deliver every entry in source order, with xmlns
  * declarations interleaved and the prefixed attr's owner-stamped
  * cache intact (the parse-inline #542 path). */
+TEST(DomBasics, AttributeSetBeyondUint8CountStillDedupes) {
+    /* attr_count is uint8_t and wraps past 255; the walk-vs-index
+     * decision must not oscillate with the wrapped count (lane 18:
+     * re-setting an existing attr on a >255-attr element must
+     * UPDATE, not append a duplicate). */
+    LeptrisDocument doc = leptris_document_create();
+    ASSERT_NE(doc, nullptr);
+    LeptrisElement e = leptris_element_create(doc, "e");
+    ASSERT_NE(e, nullptr);
+    for (int i = 0; i < 300; i++) {
+        char n[8], v[8];
+        std::snprintf(n, sizeof n, "a%d", i);
+        std::snprintf(v, sizeof v, "v%d", i);
+        ASSERT_EQ(leptris_element_set_attribute(e, n, v), LEPTRIS_OK);
+    }
+    ASSERT_EQ(leptris_element_set_attribute(e, "a250", "UPDATED"),
+              LEPTRIS_OK);
+    EXPECT_STREQ(leptris_element_attribute(e, "a250"), "UPDATED");
+    /* And the last-written attr still readable + distinct. */
+    EXPECT_STREQ(leptris_element_attribute(e, "a299"), "v299");
+    leptris_document_free(doc);
+}
+
 TEST(DomBasics, RawAttributesAcrossChunkBoundaries) {
     std::string xml = "<e xmlns='urn:d' p:k0='v0'";
     for (int i = 1; i < 300; i++) {
