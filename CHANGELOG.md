@@ -4,7 +4,13 @@
 
 ### Performance
 
-- element-typed tail store in append (P3 rider); drop no-op last_child calls (dom)
+- **append fast-path rider**: sequential appends' tail is an
+  element — the sibling edge is now the direct offset store
+  instead of the type-dispatching node setter, and the two
+  documented no-op `set_last_child` calls drop from the hot path
+  (append-only 187 → 180 ns per 10k ops; semantics identical,
+  54/54 mutation specs). Completes the lane-18 P0–P3 arc with
+  v1.9.149–151: append row 401 → ~258 µs, create path 91.6 → 6.6 ns.
 
 
 
