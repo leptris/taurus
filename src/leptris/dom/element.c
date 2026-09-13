@@ -241,7 +241,7 @@ int leptris_element_add_attribute(LeptrisElement elem,
 
     /* Initialize attribute */
     attr->name_view = name_view;
-    attr->value_view = value_view;
+    leptris_attr_value_set_heap(attr, value_view);
 
     /* Pre-compute the 15-bit hash of the attribute name for O(1)
      * lookup filtering (TODO 113 Phase 4). Entity flag starts
@@ -296,18 +296,16 @@ int leptris_element_add_attribute(LeptrisElement elem,
             LeptrisStringView decoded_sv = { value_storage, value_view.length };
             char* decoded = leptris_decode_entities_view(&decoded_sv, pool);
             if (decoded) {
-                attr->value_view = leptris_sv_from_cstr(decoded);
+                leptris_attr_value_set_heap(attr, leptris_sv_from_cstr(decoded));
             } else {
-                attr->value_view =
-                    leptris_sv_from_ptr(value_storage, value_view.length);
+                leptris_attr_value_set_heap(attr, leptris_sv_from_ptr(value_storage, value_view.length));
                 attr_set_entities(attr, 1);
             }
         } else {
-            attr->value_view =
-                leptris_sv_from_ptr(value_storage, value_view.length);
+            leptris_attr_value_set_heap(attr, leptris_sv_from_ptr(value_storage, value_view.length));
         }
     } else {
-        attr->value_view = leptris_sv_from_ptr(NULL, 0);
+        leptris_attr_value_set_heap(attr, leptris_sv_from_ptr(NULL, 0));
     }
 
     leptris_attr_set_next(attr, NULL);
@@ -350,7 +348,7 @@ int leptris_element_add_attribute_zero_copy(LeptrisElement elem,
     if (!attr) return -1;
 
     attr->name_view = name_view;
-    attr->value_view = value_view;
+    leptris_attr_value_set_heap(attr, value_view);
 
     attr->name_hash = attr_hash15(name_view.data, name_view.length);
 
@@ -364,11 +362,10 @@ int leptris_element_add_attribute_zero_copy(LeptrisElement elem,
             LeptrisStringView decoded_sv = { value_storage, value_view.length };
             char* decoded = leptris_decode_entities_view(&decoded_sv, pool);
             if (decoded) {
-                attr->value_view = leptris_sv_from_cstr(decoded);
+                leptris_attr_value_set_heap(attr, leptris_sv_from_cstr(decoded));
                 attr_set_entities(attr, 0);
             } else {
-                attr->value_view =
-                    leptris_sv_from_ptr(value_storage, value_view.length);
+                leptris_attr_value_set_heap(attr, leptris_sv_from_ptr(value_storage, value_view.length));
                 attr_set_entities(attr, 1);
             }
         } else {
@@ -601,24 +598,29 @@ const char* leptris_element_get_attribute_legacy(LeptrisElement elem, const char
     /* Single representation (TODO 184 round 4): entity values expand
      * lazily into the view (owned copy); no-entity views are already
      * NUL-terminated. */
-    if (attr_has_entities(attr) && !leptris_sv_is_empty(&attr->value_view)) {
-        if (leptris_element_get_document(elem) && leptris_element_get_pool(elem)) {
-            char* decoded = leptris_decode_entities_view(
-                &attr->value_view, leptris_element_get_pool(elem));
+    if (attr_has_entities(attr)) {
+        LeptrisStringView raw_v = leptris_attr_value_sv(attr);
+        if (!leptris_sv_is_empty(&raw_v) &&
+            leptris_element_get_document(elem) &&
+            leptris_element_get_pool(elem)) {
+            char* decoded =
+                leptris_decode_entities_view(&raw_v,
+                                             leptris_element_get_pool(elem));
             if (decoded) {
-                attr->value_view = leptris_sv_from_cstr(decoded);
+                leptris_attr_value_set_heap(attr, leptris_sv_from_cstr(decoded));
                 attr_set_entities(attr, 0);
             }
         } else {
-            char* expanded = leptris_sv_to_cstr(&attr->value_view);
+            LeptrisStringView raw_e = leptris_attr_value_sv(attr);
+            char* expanded = leptris_sv_to_cstr(&raw_e);
             if (expanded) {
-                attr->value_view = leptris_sv_from_cstr(expanded);
+                leptris_attr_value_set_heap(attr, leptris_sv_from_cstr(expanded));
                 attr_set_entities(attr, 0);
             }
         }
     }
 
-    return attr->value_view.data;
+    return leptris_attr_value_sv(attr).data;
 }
 
 /* Add namespace with in-place strings (zero-copy).

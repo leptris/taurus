@@ -171,7 +171,7 @@ static void index_walk(LeptrisElementIndex* idx, IndexKeyTable* name_keys,
     struct leptris_attribute* attr = leptris_element_get_first_attribute(elem);
     while (attr) {
         LeptrisStringView nv = attr->name_view;
-        LeptrisStringView vv = attr->value_view;
+        LeptrisStringView vv = leptris_attr_value_sv(attr);
         if (nv.length > 0 && nv.data) {
             LeptrisElementIndexAttrBucket* abucket = NULL;
             size_t ai = index_key_table_get(pair_keys, nv.data, nv.length,

@@ -113,21 +113,21 @@ static LeptrisAttributeNode* create_attribute_node(struct leptris_attribute* att
      * Entity-bearing views decode first — the axis must return the
      * same string the accessor returns (raw &#38; bytes
      * double-escaped downstream, libxslt bug-59). */
-    if (!leptris_sv_is_empty(&attr->value_view)) {
-        size_t len = attr->value_view.length;
+    LeptrisStringView axv = leptris_attr_value_sv(attr);
+    if (!leptris_sv_is_empty(&axv)) {
+        size_t len = axv.length;
         char* value_copy = NULL;
         if (attr_has_entities(attr)) {
             LeptrisMemoryPool* pool = leptris_element_get_pool(owner);
             if (pool) {
-                char* dec = leptris_decode_entities_view(
-                    &attr->value_view, pool);
+                char* dec = leptris_decode_entities_view(&axv, pool);
                 if (dec) value_copy = leptris_strdup(dec);
             }
         }
         if (!value_copy) {
             value_copy = LEPTRIS_ALLOC_N(char, len + 1);
             if (value_copy) {
-                memcpy(value_copy, attr->value_view.data, len);
+                memcpy(value_copy, leptris_attr_value_sv(attr).data, len);
                 value_copy[len] = '\0';
             }
         }

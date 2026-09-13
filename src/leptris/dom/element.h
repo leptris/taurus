@@ -74,7 +74,16 @@ struct leptris_attribute {
      * 40 bytes: 16 + 16 + 8-byte packed tail (round 19). */
 
     LeptrisStringView name_view;
-    LeptrisStringView value_view;
+    /* #1038 lane18 S1: values <= 15 bytes store INLINE in this
+     * 16-byte slot (zero allocation on overwrite); longer values
+     * keep the heap view. The union field name (value, not
+     * value_view) is deliberate: the compiler finds every reader.
+     * Flag = top bit of heap.length; inline bytes are NUL-
+     * terminated at [len]. */
+    union {
+        LeptrisStringView heap;
+        char inline_value[16];
+    } value;
 
     /* Side cache for namespace activity. 0 when the attr has no
      * prefix and no namespace_uri (the common case). Points via
@@ -83,7 +92,9 @@ struct leptris_attribute {
      * Round 19: was a raw pointer — now an int32 offset so the
      * struct fits 40 bytes (compact.c overflow-table fallback
      * covers >2GB spans). */
-    int32_t ns_cache_off;
+    
+
+int32_t ns_cache_off;
 
     /* Next attribute in linked list. TODO 183 Phase 5 (TODO 181
      * Phase D): cp16 compact pointer — the attr `next` edge only
@@ -118,6 +129,39 @@ struct leptris_attribute {
      * 56 B point measured dead and the 32 B split-stream upper
      * bound dead — 40 was the last unmeasured point on the axis. */
 };
+#define LEPTRIS_ATTR_VALUE_INLINE_BIT ((size_t)1 << 63)
+#define LEPTRIS_ATTR_VALUE_MAX_INLINE 15
+
+static inline LeptrisStringView leptris_attr_value_sv(
+    const struct leptris_attribute* a) {
+    if (a->value.heap.length & LEPTRIS_ATTR_VALUE_INLINE_BIT) {
+        LeptrisStringView sv;
+        sv.data = a->value.inline_value;
+        sv.length = a->value.heap.length & ~LEPTRIS_ATTR_VALUE_INLINE_BIT;
+        return sv;
+    }
+    return a->value.heap;
+}
+
+static inline void leptris_attr_value_set_heap(
+    struct leptris_attribute* a, LeptrisStringView sv) {
+    sv.length &= ~LEPTRIS_ATTR_VALUE_INLINE_BIT;
+    a->value.heap = sv;
+}
+
+static inline void leptris_attr_value_set_inline(
+    struct leptris_attribute* a, const char* s, size_t len) {
+    if (len > LEPTRIS_ATTR_VALUE_MAX_INLINE) len = LEPTRIS_ATTR_VALUE_MAX_INLINE;
+    memcpy(a->value.inline_value, s, len);
+    a->value.inline_value[len] = '\0';
+    a->value.heap.length = LEPTRIS_ATTR_VALUE_INLINE_BIT | len;
+}
+
+static inline int leptris_attr_value_is_inline(
+    const struct leptris_attribute* a) {
+    return (a->value.heap.length & LEPTRIS_ATTR_VALUE_INLINE_BIT) != 0;
+}
+
 
 /* Size pin lives with the LEPTRIS_STATIC_ASSERT macro below (C++-
  * compatible), next to the element size pin. */
@@ -133,7 +177,9 @@ static inline const char* attr_cname(const struct leptris_attribute* a) {
 }
 
 static inline const char* attr_cvalue(const struct leptris_attribute* a) {
-    return a->value_view.data ? a->value_view.data : "";
+    return a ? (leptris_attr_value_sv(a).data ? leptris_attr_value_sv(a).data
+                                              : "")
+             : "";
 }
 
 /* Attr list-edge accessors (TODO 183 Phase 5). next_cp stores the
@@ -863,7 +909,7 @@ static inline LeptrisStringView leptris_attribute_name_view(const struct leptris
 
 /* Get attribute value as StringView (NO conversion, O(1) access) */
 static inline LeptrisStringView leptris_attribute_value_view(const struct leptris_attribute* attr) {
-    return attr ? attr->value_view : leptris_sv_empty();
+    return attr ? leptris_attr_value_sv(attr) : leptris_sv_empty();
 }
 
 /* Fast name comparison helpers (for hot paths like traversal) */

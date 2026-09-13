@@ -185,16 +185,17 @@ LEPTRIS_API const char* leptris_element_attribute(LeptrisElement elem, const cha
      * NUL-terminated C strings. */
     if (attr_has_entities(attr)) {
         LeptrisMemoryPool* pool = leptris_element_get_pool(elem);
+        LeptrisStringView raw_v = leptris_attr_value_sv(attr);
         char* decoded = pool
-            ? leptris_decode_entities_view(&attr->value_view, pool)
+            ? leptris_decode_entities_view(&raw_v, pool)
             : NULL;
         if (decoded) {
-            attr->value_view = leptris_sv_from_cstr(decoded);
+            leptris_attr_value_set_heap(attr, leptris_sv_from_cstr(decoded));
             attr_set_entities(attr, 0);
         }
     }
-    if (attr->value_view.data && attr->value_view.length > 0)
-        return attr->value_view.data;
+    if (leptris_attr_value_sv(attr).data && leptris_attr_value_sv(attr).length > 0)
+        return leptris_attr_value_sv(attr).data;
     return "";   /* present-but-empty (see attribute_value_at) */
 }
 
@@ -306,16 +307,17 @@ LEPTRIS_API const char* leptris_element_attribute_ns(LeptrisElement elem,
     if (!attr) return NULL;
     if (attr_has_entities(attr)) {
         LeptrisMemoryPool* pool = leptris_element_get_pool(elem);
+        LeptrisStringView raw_v = leptris_attr_value_sv(attr);
         char* decoded = pool
-            ? leptris_decode_entities_view(&attr->value_view, pool)
+            ? leptris_decode_entities_view(&raw_v, pool)
             : NULL;
         if (decoded) {
-            attr->value_view = leptris_sv_from_cstr(decoded);
+            leptris_attr_value_set_heap(attr, leptris_sv_from_cstr(decoded));
             attr_set_entities(attr, 0);
         }
     }
-    if (attr->value_view.data && attr->value_view.length > 0)
-        return attr->value_view.data;
+    if (leptris_attr_value_sv(attr).data && leptris_attr_value_sv(attr).length > 0)
+        return leptris_attr_value_sv(attr).data;
     return "";   /* present-but-empty (see attribute_value_at) */
 }
 
@@ -1148,17 +1150,17 @@ LEPTRIS_API const char* leptris_element_attribute_value_at(LeptrisElement elem, 
             if (attr_has_entities(attr)) {
                 LeptrisMemoryPool* pool = leptris_element_get_pool(elem);
                 if (pool) {
-                    char* decoded = leptris_decode_entities_view(
-                        &attr->value_view, pool);
+                    LeptrisStringView rv_ = leptris_attr_value_sv(attr);
+                    char* decoded = leptris_decode_entities_view(&rv_, pool);
                     if (decoded) {
-                        attr->value_view = leptris_sv_from_cstr(decoded);
+                        leptris_attr_value_set_heap(attr, leptris_sv_from_cstr(decoded));
                         attr_set_entities(attr, 0);
                     }
                 }
             }
-            if (attr->value_view.data &&
-                attr->value_view.length > 0) {
-                return attr->value_view.data;
+            if (leptris_attr_value_sv(attr).data &&
+                leptris_attr_value_sv(attr).length > 0) {
+                return leptris_attr_value_sv(attr).data;
             }
             /* Present-but-empty value: a real empty string, not
              * "no attribute" (issue: eg:bar="" vanished in XSLT
@@ -1197,10 +1199,10 @@ LEPTRIS_API const char* leptris_attribute_get_value(LeptrisElement elem, Leptris
     if (attr_has_entities(attr)) {
         LeptrisMemoryPool* pool = leptris_element_get_pool(elem);
         if (pool) {
-            char* decoded = leptris_decode_entities_view(
-                &attr->value_view, pool);
+            LeptrisStringView rv_ = leptris_attr_value_sv(attr);
+            char* decoded = leptris_decode_entities_view(&rv_, pool);
             if (decoded) {
-                attr->value_view = leptris_sv_from_cstr(decoded);
+                leptris_attr_value_set_heap(attr, leptris_sv_from_cstr(decoded));
                 attr_set_entities(attr, 0);
             }
         }

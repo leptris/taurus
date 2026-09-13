@@ -675,7 +675,7 @@ struct leptris_xpath_result* vm_apply_axis_attribute(XPathContext* ctx, XPathVM*
                  * Entity-bearing views decode first — the axis must
                  * return the same string the accessor returns (the
                  * raw &#38; bytes double-escaped downstream, bug-59). */
-                LeptrisStringView vv = attr->value_view;
+                LeptrisStringView vv = leptris_attr_value_sv(attr);
                 if (attr_has_entities(attr) && vv.length > 0 && vv.data) {
                     LeptrisMemoryPool* pool =
                         leptris_element_get_pool(elem);
@@ -1177,7 +1177,7 @@ static int attr_pred_match(LeptrisElement e,
         if (attr_name && nv.length == attr_name_len && nv.length > 0 && nv.data &&
             memcmp(attr_name, nv.data, nv.length) == 0) {
             if (!value_match) return 1;
-            LeptrisStringView vv = a->value_view;
+            LeptrisStringView vv = leptris_attr_value_sv(a);
             if (vv.length == value_len && vv.length > 0 && vv.data &&
                 memcmp(attr_value, vv.data, vv.length) == 0) {
                 return 1;
@@ -2485,10 +2485,10 @@ static struct leptris_xpath_result* vm_run(LeptrisXPathBytecode* bc,
                         if (attr_name && expected &&
                             attr_name_hash(a) == name_hash &&
                             a->name_view.length == name_len &&
-                            a->value_view.length == value_len &&
-                            a->name_view.data && a->value_view.data &&
+                            leptris_attr_value_sv(a).length == value_len &&
+                            a->name_view.data && leptris_attr_value_sv(a).data &&
                             memcmp(attr_name, a->name_view.data, name_len) == 0 &&
-                            memcmp(expected, a->value_view.data, value_len) == 0) {
+                            memcmp(expected, leptris_attr_value_sv(a).data, value_len) == 0) {
                             match = 1;
                             break;
                         }

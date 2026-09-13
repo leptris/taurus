@@ -871,17 +871,16 @@ LeptrisStatus leptris_element_set_attribute(LeptrisElement elem, const char* nam
                 if (!storage) return LEPTRIS_ERROR_MEMORY;
                 memcpy(storage, value, vlen);
                 storage[vlen] = '\0';
-                existing->value_view = leptris_sv_from_ptr(storage, vlen);
+                leptris_attr_value_set_heap(existing, leptris_sv_from_ptr(storage, vlen));
             } else {
-                existing->value_view = leptris_sv_empty();
+                leptris_attr_value_set_heap(existing, leptris_sv_empty());
             }
             attr_set_entities(existing, 0);
         } else {
             /* No pool available: views into the caller's string
              * (fallback for edge cases — mutation API contract says
              * the value string must outlive the attribute here). */
-            existing->value_view =
-                value ? leptris_sv_from_cstr(value) : leptris_sv_empty();
+            leptris_attr_value_set_heap(existing, value ? leptris_sv_from_cstr(value) : leptris_sv_empty());
             attr_set_entities(existing, 0);
         }
     } else {
@@ -927,9 +926,9 @@ LeptrisStatus leptris_element_set_attribute(LeptrisElement elem, const char* nam
                 memcpy(value_storage, value, vlen);
                 value_storage[vlen] = '\0';
             }
-            attr->value_view = leptris_sv_from_ptr(value_storage, vlen);
+            leptris_attr_value_set_heap(attr, leptris_sv_from_ptr(value_storage, vlen));
         } else {
-            attr->value_view = leptris_sv_empty();
+            leptris_attr_value_set_heap(attr, leptris_sv_empty());
         }
 
         attr->ns_cache_off = 0;  /* TODO 173 */
@@ -1191,7 +1190,7 @@ LeptrisElement leptris_element_append_copy(LeptrisElement parent, LeptrisElement
         struct leptris_attribute* attr = leptris_element_get_attribute_by_index(source, i);
         if (attr && !leptris_sv_is_empty(&attr->name_view)) {
             LeptrisStringView attr_name_view = attr->name_view;
-            LeptrisStringView attr_value_view = attr->value_view;
+            LeptrisStringView attr_value_view = leptris_attr_value_sv(attr);
 
             /* For cross-document copies, copy the attribute string data */
             if (is_cross_doc) {
@@ -1201,7 +1200,9 @@ LeptrisElement leptris_element_append_copy(LeptrisElement parent, LeptrisElement
                 }
 
                 char* name_copy = leptris_sv_to_cstr_pooled(&attr->name_view, leptris_element_get_pool(parent));
-                char* value_copy = leptris_sv_to_cstr_pooled(&attr->value_view, leptris_element_get_pool(parent));
+                LeptrisStringView av_ = leptris_attr_value_sv(attr);
+                char* value_copy =
+                    leptris_sv_to_cstr_pooled(&av_, leptris_element_get_pool(parent));
                 if (!name_copy || !value_copy) {
                     /* Allocation failed - skip this attribute */
                     if (name_copy) /* Nothing to free, pool-allocated */
@@ -1371,12 +1372,14 @@ LeptrisElement leptris_element_prepend_copy(LeptrisElement parent, LeptrisElemen
         struct leptris_attribute* attr = leptris_element_get_attribute_by_index(source, i);
         if (attr && !leptris_sv_is_empty(&attr->name_view)) {
             LeptrisStringView attr_name_view = attr->name_view;
-            LeptrisStringView attr_value_view = attr->value_view;
+            LeptrisStringView attr_value_view = leptris_attr_value_sv(attr);
 
             /* For cross-document copies, copy the attribute string data */
             if (is_cross_doc) {
                 char* name_copy = leptris_sv_to_cstr_pooled(&attr->name_view, leptris_element_get_pool(parent));
-                char* value_copy = leptris_sv_to_cstr_pooled(&attr->value_view, leptris_element_get_pool(parent));
+                LeptrisStringView av_ = leptris_attr_value_sv(attr);
+                char* value_copy =
+                    leptris_sv_to_cstr_pooled(&av_, leptris_element_get_pool(parent));
                 if (!name_copy || !value_copy) {
                     /* Allocation failed - skip this attribute */
                     if (name_copy) /* Nothing to free, pool-allocated */
@@ -1484,12 +1487,14 @@ LeptrisElement leptris_element_insert_copy_after(LeptrisElement sibling, Leptris
         struct leptris_attribute* attr = leptris_element_get_attribute_by_index(source, i);
         if (attr && !leptris_sv_is_empty(&attr->name_view)) {
             LeptrisStringView attr_name_view = attr->name_view;
-            LeptrisStringView attr_value_view = attr->value_view;
+            LeptrisStringView attr_value_view = leptris_attr_value_sv(attr);
 
             /* For cross-document copies, copy the attribute string data */
             if (is_cross_doc) {
                 char* name_copy = leptris_sv_to_cstr_pooled(&attr->name_view, leptris_element_get_pool(parent));
-                char* value_copy = leptris_sv_to_cstr_pooled(&attr->value_view, leptris_element_get_pool(parent));
+                LeptrisStringView av_ = leptris_attr_value_sv(attr);
+                char* value_copy =
+                    leptris_sv_to_cstr_pooled(&av_, leptris_element_get_pool(parent));
                 if (!name_copy || !value_copy) {
                     /* Allocation failed - skip this attribute */
                     if (name_copy) /* Nothing to free, pool-allocated */
@@ -1597,12 +1602,14 @@ LeptrisElement leptris_element_insert_copy_before(LeptrisElement sibling, Leptri
         struct leptris_attribute* attr = leptris_element_get_attribute_by_index(source, i);
         if (attr && !leptris_sv_is_empty(&attr->name_view)) {
             LeptrisStringView attr_name_view = attr->name_view;
-            LeptrisStringView attr_value_view = attr->value_view;
+            LeptrisStringView attr_value_view = leptris_attr_value_sv(attr);
 
             /* For cross-document copies, copy the attribute string data */
             if (is_cross_doc) {
                 char* name_copy = leptris_sv_to_cstr_pooled(&attr->name_view, leptris_element_get_pool(parent));
-                char* value_copy = leptris_sv_to_cstr_pooled(&attr->value_view, leptris_element_get_pool(parent));
+                LeptrisStringView av_ = leptris_attr_value_sv(attr);
+                char* value_copy =
+                    leptris_sv_to_cstr_pooled(&av_, leptris_element_get_pool(parent));
                 if (!name_copy || !value_copy) {
                     /* Allocation failed - skip this attribute */
                     if (name_copy) /* Nothing to free, pool-allocated */
@@ -1763,9 +1770,10 @@ static LeptrisElement leptris_element_copy_subtree_bulk_internal(
             char* n = leptris_pool_strdup(pool, src_attr->name_view.data);
             if (n) dst_attr->name_view = leptris_sv_from_cstr(n);
         }
-        if (!leptris_sv_is_empty(&src_attr->value_view)) {
-            char* v = leptris_pool_strdup(pool, src_attr->value_view.data);
-            if (v) dst_attr->value_view = leptris_sv_from_cstr(v);
+        LeptrisStringView svv_ = leptris_attr_value_sv(src_attr);
+        if (!leptris_sv_is_empty(&svv_)) {
+            char* v = leptris_pool_strdup(pool, leptris_attr_value_sv(src_attr).data);
+            if (v) leptris_attr_value_set_heap(dst_attr, leptris_sv_from_cstr(v));
         }
         dst_attr->name_hash = src_attr->name_hash;  /* hash + entity flag */
         dst_attr->ns_cache_off = 0;  /* set below if source has cache */
@@ -1945,9 +1953,10 @@ static LeptrisElement copy_subtree_detached(LeptrisElement source,
         if (leptris_sv_is_empty(&sa->name_view)) continue;
         char* n = leptris_pool_strdup(pool, sa->name_view.data);
         if (!n) continue;
-        char* v = leptris_sv_is_empty(&sa->value_view)
+        LeptrisStringView sav_ = leptris_attr_value_sv(sa);
+        char* v = leptris_sv_is_empty(&sav_)
                       ? NULL
-                      : leptris_pool_strdup(pool, sa->value_view.data);
+                      : leptris_pool_strdup(pool, sav_.data);
         LeptrisStringView nv = leptris_sv_from_cstr(n);
         LeptrisStringView vv =
             v ? leptris_sv_from_cstr(v) : leptris_sv_from_cstr("");
