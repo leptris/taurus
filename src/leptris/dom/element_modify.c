@@ -836,7 +836,7 @@ LeptrisStatus leptris_element_set_attribute(LeptrisElement elem, const char* nam
      * attr-name index (lazy registration covers parse-created attrs);
      * NULL index (alloc failure) falls back to the list walk. */
     size_t set_name_len = strlen(name);
-    uint32_t set_name_hash = attr_index_hash(name, set_name_len);
+    uint32_t set_name_hash = 0;
     struct leptris_document* set_doc = leptris_element_get_document(elem);
     struct leptris_attr_index* set_ix = NULL;
     size_t set_slot = (size_t)-1;
@@ -847,6 +847,7 @@ LeptrisStatus leptris_element_set_attribute(LeptrisElement elem, const char* nam
         /* Lane 18: the flag latches — attr_count wraps at 255 and
          * must never flip a high-attr element back to the walk. */
         elem->header.flags |= LEPTRIS_ATTR_INDEXED_FLAG;
+        set_name_hash = attr_index_hash(name, set_name_len);
         existing = attr_index_lookup(set_doc, elem, name, set_name_len,
                                      set_name_hash, &set_ix, &set_slot);
     } else {
@@ -855,12 +856,21 @@ LeptrisStatus leptris_element_set_attribute(LeptrisElement elem, const char* nam
         existing = leptris_element_get_attribute_by_name(elem, name);
     }
     if (existing) {
-        /* Update existing attribute's value */
-        LeptrisMemoryPool* pool = NULL;
-        if (leptris_element_get_document(elem) && leptris_element_get_pool(elem)) {
-            pool = leptris_element_get_pool(elem);
-        }
+        /* Update existing attribute's value. One resolution (the
+         * set_doc from the top of the function) — the old path
+         * re-climbed get_document/get_pool twice per overwrite. */
+        LeptrisMemoryPool* pool = set_doc ? set_doc->pool : NULL;
 
+        if (value) {
+            size_t vlen = strlen(value);
+            if (vlen <= LEPTRIS_ATTR_VALUE_MAX_INLINE) {
+                /* lane18 S1: small values store INLINE in the slot —
+                 * zero allocation per overwrite. */
+                leptris_attr_value_set_inline(existing, value, vlen);
+                attr_set_entities(existing, 0);
+                return LEPTRIS_OK;
+            }
+        }
         if (pool) {
             /* Pool-allocated document: pool_strdup the new value (no
              * interning — see header comment).  Old value is pool-
@@ -919,14 +929,21 @@ LeptrisStatus leptris_element_set_attribute(LeptrisElement elem, const char* nam
 
         if (value) {
             size_t vlen = strlen(value);
-            char* value_storage = mut_str_carve(set_doc, value, vlen);
-            if (!value_storage) {
-                value_storage = (char*)leptris_pool_alloc(pool, vlen + 1);
-                if (!value_storage) return LEPTRIS_ERROR_MEMORY;
-                memcpy(value_storage, value, vlen);
-                value_storage[vlen] = '\0';
+            if (vlen <= LEPTRIS_ATTR_VALUE_MAX_INLINE) {
+                /* lane18 S1: small new values inline in the slot —
+                 * no carve, no pool round-trip. */
+                leptris_attr_value_set_inline(attr, value, vlen);
+            } else {
+                char* value_storage = mut_str_carve(set_doc, value, vlen);
+                if (!value_storage) {
+                    value_storage = (char*)leptris_pool_alloc(pool, vlen + 1);
+                    if (!value_storage) return LEPTRIS_ERROR_MEMORY;
+                    memcpy(value_storage, value, vlen);
+                    value_storage[vlen] = '\0';
+                }
+                leptris_attr_value_set_heap(
+                    attr, leptris_sv_from_ptr(value_storage, vlen));
             }
-            leptris_attr_value_set_heap(attr, leptris_sv_from_ptr(value_storage, vlen));
         } else {
             leptris_attr_value_set_heap(attr, leptris_sv_empty());
         }
