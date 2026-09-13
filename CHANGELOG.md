@@ -1,13 +1,9 @@
 ## [Unreleased]
 
 ## [1.9.155] - 2026-09-13
+### Fixed
 
-### Added
-
-- template cgroup drops + </template> pop-through (corpus 1200 -> 1206) (html)
-
-
-
+- **HTML (WHATWG mode): three template-mode gaps closed.** (1) In-column-group on a `<template>` current node ignores every token but `col` starts (gumbo `handle_in_column_group`): `colgroup`, `div` and non-whitespace text after a `<col>` drop. (2) `</template>` inside `<select>` runs the in-head rules instead of the in-select ignore gate — the select's insertion point returns, so a following `<option>` is a select child. (3) `</template>` matches only HTML-namespace templates and skips the integration-point fence — an SVG `<template>` element is foreign content, so the end tag pops the whole foreign stack down to the html template and resets. html5lib corpus 1200 -> 1206 (template.dat 22/71/73/74/76/100); Nokogiri parity floor 784 held; specs `TemplateColumnGroupDropsNonColTokens`, `SelectTemplateCloseRestoresSelect`, `TemplateEndPopsThroughForeignContent`. Test-only: the corpus runner grows an `H5DUMP=1` expected-vs-ours tree dump per failed case.
 ## [1.9.154] - 2026-09-13
 ### Fixed
 
