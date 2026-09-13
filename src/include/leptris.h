@@ -1768,6 +1768,20 @@ LEPTRIS_API LeptrisStatus leptris_element_set_name(LeptrisElement elem, const ch
 LEPTRIS_API LeptrisStatus leptris_element_append_child(LeptrisElement parent, LeptrisElement child);
 
 /**
+ * Create a new element and append it to parent in one call.
+ *
+ * The fused twin of create + append_child: one document resolution,
+ * one public entry — the builder-shape answer to single-call DOM
+ * construction APIs. Identical tree semantics to the two-call pair
+ * (same name handling incl. QName splits, same append rules).
+ *
+ * Memory: the element is owned by parent's document; freed via
+ * leptris_document_free. Returns NULL on invalid args or allocation
+ * failure (nothing is attached in that case).
+ */
+LEPTRIS_API LeptrisElement leptris_element_create_child(LeptrisElement parent, const char* name);
+
+/**
  * Prepend child element at the beginning
  *
  * @param parent Parent element
