@@ -83,3 +83,31 @@ walk -> slot cache-back; set_prefix creates the cache initing only
   per-create hash/split to lazy. P1 IS the decisive slice; do it
   in a fresh window with the detached-construction suite as the
   gate.
+
+## Ceiling verdict 2026-09-13 (post-P0-P3, definitive A/B)
+
+- The mutation-wrapper invalidation calls are FREE (invalidate_
+  child_cache is a literal no-op; index_invalidate = version++).
+  An apparent 56ns delta was thermal/load pollution — two-binary
+  A/B with order control: 246/247/251us identical. LESSON: never
+  getenv-gate a hot loop; thermal drift between sequential runs
+  fabricates 2-4x deltas. (Same class as the 928us "regression"
+  that dissolved on the clean rerun.)
+- Post-P1+P3 shape: create 6.6ns + append ~18ns = ~246us/10k vs
+  pugi 11.6ns TOTAL (116us). Remaining append cost = 2 cross-TU
+  call frames + get_document memo + validation ladder + parent
+  decode + mut_tail validate + 6 stores + COW version++.
+- CEILING: flattening the frames (~3ns) and shaving checks (~2ns)
+  floors at ~19-20ns total ~= 1.7x pugi. OUTRIGHT wins on this
+  microbench require removing semantics pugi does not carry:
+  node-type validation, COW versioning, doc resolution, compact-
+  encode safety, per-element child_count. That is a design
+  decision (which guarantees to drop or make conditional), not an
+  optimization — SAME CLASS as the #682 call. Options:
+  (a) accept mixed frontier (every USER-VISIBLE row already ahead
+      or at parity-closing distance),
+  (b) a leptris_element_create_child(parent, name) fused API that
+      skips the public-contract checks internally (keeps all
+      semantics, one call, likely lands ~14-16ns ≈ 1.3x),
+  (c) conditional fast-path via a doc flag (opt-out of COW/
+      validation for trusted builders). USER CALL.
