@@ -44,6 +44,37 @@ static LEPTRIS_THREAD_LOCAL RootDocEntry* g_root_doc_buckets[ROOT_DOC_BUCKETS];
  * malloc/free churn on the parse→free cycle. */
 static LEPTRIS_THREAD_LOCAL RootDocEntry* g_free_list;
 
+/* Entry chunks (lane 18 P0): one TLS bump chunk serves fresh
+ * entries so a create-heavy document pays no malloc per element —
+ * the free-list only refills after unregister. Entries are still
+ * exactly the same map nodes with the same lifetime; only the
+ * allocation source changed. */
+#define ROOTMAP_CHUNK 128
+typedef struct root_doc_chunk {
+    struct root_doc_chunk* next;
+    RootDocEntry entries[ROOTMAP_CHUNK];
+} RootDocChunk;
+static LEPTRIS_THREAD_LOCAL RootDocChunk* g_entry_chunks;
+static LEPTRIS_THREAD_LOCAL RootDocEntry* g_entry_cursor;
+static LEPTRIS_THREAD_LOCAL RootDocEntry* g_entry_end;
+
+static RootDocEntry* entry_take(void) {
+    if (g_free_list) {
+        RootDocEntry* e = g_free_list;
+        g_free_list = e->next;
+        return e;
+    }
+    if (g_entry_cursor < g_entry_end) return g_entry_cursor++;
+    RootDocChunk* c = (RootDocChunk*)malloc(sizeof(*c));
+    if (!c) return NULL;
+    c->next = g_entry_chunks;
+    g_entry_chunks = c;
+    g_entry_end = c->entries + ROOTMAP_CHUNK;
+    RootDocEntry* e = c->entries;
+    g_entry_cursor = e + 1;
+    return e;
+}
+
 static size_t bucket_index(LeptrisElement root) {
     uintptr_t v = (uintptr_t)root;
     v ^= v >> 16;
@@ -61,27 +92,17 @@ void leptris_root_doc_register(LeptrisElement root, struct leptris_document* doc
         }
     } else {
         /* Never registered: prepend directly, no duplicate walk. */
-        RootDocEntry* e = g_free_list;
-        if (e) {
-            g_free_list = e->next;
-        } else {
-            e = (RootDocEntry*)malloc(sizeof(*e));
-            if (!e) return;
-        }
+        RootDocEntry* e = entry_take();
+        if (!e) return;
         e->root = root; e->doc = doc;
         e->next = g_root_doc_buckets[idx];
         g_root_doc_buckets[idx] = e;
         rootmap_set(root, 1);
         return;
     }
-    /* Pop from free-list, or malloc if empty. */
-    RootDocEntry* e = g_free_list;
-    if (e) {
-        g_free_list = e->next;
-    } else {
-        e = (RootDocEntry*)malloc(sizeof(*e));
-        if (!e) return;
-    }
+    /* Pop from free-list, or the bump chunk. */
+    RootDocEntry* e = entry_take();
+    if (!e) return;
     e->root = root; e->doc = doc;
     e->next = g_root_doc_buckets[idx];
     g_root_doc_buckets[idx] = e;
@@ -93,9 +114,15 @@ void leptris_root_doc_register(LeptrisElement root, struct leptris_document* doc
 void leptris_root_doc_drain_thread_caches(void) {
     while (g_free_list) {
         RootDocEntry* next = g_free_list->next;
-        free(g_free_list);
-        g_free_list = next;
+        g_free_list = next; /* chunk-owned; freed with the chunks */
     }
+    while (g_entry_chunks) {
+        RootDocChunk* next = g_entry_chunks->next;
+        free(g_entry_chunks);
+        g_entry_chunks = next;
+    }
+    g_entry_cursor = NULL;
+    g_entry_end = NULL;
 }
 
 void leptris_root_doc_unregister(LeptrisElement root) {
