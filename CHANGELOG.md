@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+## [1.9.153] - 2026-09-13
+
+### Added
+
+- leptris_element_create_child — fused create+append (api)
+
+
+
 ## [1.9.152] - 2026-09-13
 
 ### Performance
