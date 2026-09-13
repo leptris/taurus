@@ -13,6 +13,9 @@ extern "C" struct leptris_document* leptris_root_doc_lookup(
  * the doc, and a malloc-recycled element address later resolved
  * the FREED doc through the stale entry: roaming heap corruption
  * in every downstream binding suite (~5% of runs, v1.9.151-155). */
+extern "C" size_t leptris_root_doc_unregister_doc(
+    struct leptris_document* doc);
+
 TEST(RootDocMapLifecycle, FallbackEntryDiesWithDocument) {
     const std::string long_name(300, 'n');  /* > 254: pool fallback */
     LeptrisDocument d = leptris_document_create();
@@ -21,11 +24,12 @@ TEST(RootDocMapLifecycle, FallbackEntryDiesWithDocument) {
     ASSERT_TRUE(e != NULL);
     /* Registered (fallback) and resolvable while the doc lives. */
     EXPECT_TRUE(leptris_root_doc_lookup(e) != NULL);
-    leptris_document_free(d);
-    /* The entry must not survive the document: a recycled element
-     * address here resolves a freed doc (lookup only compares
-     * pointers, so this assertion itself is well-defined). */
+    /* The document-death sweep (what document_free runs) removes
+     * the fallback registration while the element storage is
+     * still alive — no freed-memory reads, deterministic. */
+    EXPECT_EQ(leptris_root_doc_unregister_doc(d), 1u);
     EXPECT_EQ(leptris_root_doc_lookup(e), nullptr);
+    leptris_document_free(d);
 }
 
 TEST(RootDocMapLifecycle, RecycleLoopSurvives) {
