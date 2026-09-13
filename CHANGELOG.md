@@ -4,8 +4,16 @@
 
 ### Performance
 
-- latch the attr-index decision — set-attr row 459 -> 327 us (dom)
-- chunk-allocated root-doc map entries (create path 91.6 -> 19.2 ns) (dom)
+- **DOM create path 91.6 → 19.2 ns/op (10k-create harness 916 →
+  192 µs)**: the root-doc map malloc'd an entry per *created*
+  element whenever its free-list was empty (78% of the whole public
+  create path); entries now carve from 128-entry TLS chunks. Same
+  map, same registration semantics, same lifetime.
+- **set-attr row 459 → 327 µs** (2.3× → 1.60× vs pugixml):
+  `attr_count` is uint8_t and wraps at 255 — the walk-vs-index
+  threshold keyed on it oscillated, dropping high-attr elements
+  back onto the O(N) walk. A latching header bit keeps the decision
+  stable; spec pins >255-attr dedup.
 
 
 
