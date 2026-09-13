@@ -746,14 +746,17 @@ void leptris_element_append_child_internal_doc(LeptrisElement elem, LeptrisNode*
          * we set its next_sibling via the type-dispatching setter. */
         LeptrisNode* last_node = mut_tail ? mut_tail : leptris_elem_last_child(elem);
         if (last_node) {
-            leptris_node_set_next_sibling(last_node, (LeptrisNode*)child_elem);
-
-            /* Set last_child to the new child */
-            leptris_elem_set_last_child(elem, (LeptrisNode*)child_elem);
+            /* Lane 18 P3: sequential appends' tail is an element —
+             * the offset store directly; the type-dispatching node
+             * setter only pays off for mixed-kind tails. */
+            if (last_node->type == LEPTRIS_NODE_TYPE_ELEMENT)
+                leptris_elem_set_next_sibling((LeptrisElement)last_node,
+                                              (LeptrisNode*)child_elem);
+            else
+                leptris_node_set_next_sibling(last_node,
+                                              (LeptrisNode*)child_elem);
         } else {
-            /* No children yet - set first and last child */
             leptris_elem_set_first_child(elem, (LeptrisNode*)child_elem);
-            leptris_elem_set_last_child(elem, (LeptrisNode*)child_elem);
         }
 
         /* Increment child count */
