@@ -1363,8 +1363,25 @@ LEPTRIS_API LeptrisStatus leptris_element_set_namespace(
     if (!uri || !*uri) {
         leptris_elem_set_prefix(elem, NULL, pool);
         leptris_elem_set_ns_uri(elem, NULL, pool);
-        LeptrisStatus rc =
-            leptris_element_add_namespace_definition(elem, NULL, "");
+        /* #1040: the xmlns="" undeclaration blocks an in-scope
+         * DEFAULT namespace from recapturing the now-unqualified
+         * name. When no non-empty default declaration is in scope
+         * (own chain included) there is nothing to block — adding
+         * one anyway lingers in the nsDef chain and serializes as
+         * a redundant xmlns="". */
+        int block_needed = 0;
+        for (LeptrisElement a = elem; a && !block_needed;
+             a = (LeptrisElement)leptris_node_parent((LeptrisNodeRef)a)) {
+            for (int i = 0;; i++) {
+                const char* p = leptris_element_namespace_decl_prefix(a, i);
+                const char* u = leptris_element_namespace_decl_uri(a, i);
+                if (!u) break;
+                if ((!p || !*p) && *u) { block_needed = 1; break; }
+            }
+        }
+        LeptrisStatus rc = LEPTRIS_OK;
+        if (block_needed)
+            rc = leptris_element_add_namespace_definition(elem, NULL, "");
         if (rc == LEPTRIS_OK)
             leptris_node_increment_version(LEPTRIS_ELEMENT_AS_NODE(elem));
         return rc;

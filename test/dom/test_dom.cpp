@@ -703,6 +703,47 @@ TEST(ElementNamespace, SetNamespaceNullDetaches) {
     leptris_document_free(doc);
 }
 
+/* #1040: detaching with NO default namespace in scope must not
+ * leave an xmlns="" undeclaration — nothing needs blocking. */
+TEST(ElementNamespace, SetNamespaceNullNoDefaultInScopeNoUndeclaration) {
+    LeptrisStatus st = LEPTRIS_OK;
+    const char xml[] = "<r xmlns:p=\"urn:p\"><p:child/></r>";
+    LeptrisDocument doc = leptris_parse_string(xml, std::strlen(xml), &st);
+    ASSERT_NE(doc, nullptr);
+    LeptrisElement r = leptris_document_root(doc);
+    LeptrisElement el = (LeptrisElement)leptris_node_first_child(
+        leptris_element_as_node(r));
+    ASSERT_NE(el, nullptr);
+    EXPECT_EQ(leptris_element_set_namespace(el, nullptr), LEPTRIS_OK);
+    char* out = leptris_document_serialize(doc, nullptr);
+    ASSERT_NE(out, nullptr);
+    EXPECT_STREQ(out, "<r xmlns:p=\"urn:p\"><child/></r>")
+        << "redundant xmlns=\"\" emitted: " << out;
+    leptris_free_string(out);
+    leptris_document_free(doc);
+}
+
+/* #1040: with a default namespace in scope the xmlns=""
+ * undeclaration is semantically required and must be kept. */
+TEST(ElementNamespace, SetNamespaceNullDefaultInScopeKeepsUndeclaration) {
+    LeptrisStatus st = LEPTRIS_OK;
+    const char xml[] = "<r xmlns=\"urn:d\"><c/></r>";
+    LeptrisDocument doc = leptris_parse_string(xml, std::strlen(xml), &st);
+    ASSERT_NE(doc, nullptr);
+    LeptrisElement r = leptris_document_root(doc);
+    LeptrisElement el = (LeptrisElement)leptris_node_first_child(
+        leptris_element_as_node(r));
+    ASSERT_NE(el, nullptr);
+    EXPECT_EQ(leptris_element_set_namespace(el, nullptr), LEPTRIS_OK);
+    EXPECT_EQ(leptris_element_namespace(el), nullptr);
+    char* out = leptris_document_serialize(doc, nullptr);
+    ASSERT_NE(out, nullptr);
+    EXPECT_STREQ(out, "<r xmlns=\"urn:d\"><c xmlns=\"\"/></r>")
+        << "required undeclaration lost: " << out;
+    leptris_free_string(out);
+    leptris_document_free(doc);
+}
+
 TEST(ElementNamespace, SetNamespaceRebindsToInScopePrefix) {
     LeptrisStatus st = LEPTRIS_OK;
     const char xml[] =
