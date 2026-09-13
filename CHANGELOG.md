@@ -1,5 +1,14 @@
 ## [Unreleased]
 
+## [1.9.150] - 2026-09-13
+
+### Performance
+
+- latch the attr-index decision — set-attr row 459 -> 327 us (dom)
+- chunk-allocated root-doc map entries (create path 91.6 -> 19.2 ns) (dom)
+
+
+
 ## [1.9.149] - 2026-09-12
 
 ### Performance
