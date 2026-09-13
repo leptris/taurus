@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+## [1.9.155] - 2026-09-13
+
+### Added
+
+- template cgroup drops + </template> pop-through (corpus 1200 -> 1206) (html)
+
+
+
 ## [1.9.154] - 2026-09-13
 ### Fixed
 
