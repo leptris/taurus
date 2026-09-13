@@ -144,6 +144,33 @@ void leptris_root_doc_unregister(LeptrisElement root) {
     }
 }
 
+/* #1038: root-doc map entries must die with their document. The
+ * pool-fallback create paths register DETACHED elements (long
+ * names, carve failure) that never become new_dom_root, and the
+ * adopted-child free path nulls new_dom_root before recursing —
+ * pre-fix those entries outlived the doc, and a malloc-recycled
+ * element address later resolved the FREED doc through the stale
+ * entry: roaming heap corruption in downstream binding suites
+ * (~5% of runs, v1.9.151-155). document_free sweeps every bucket
+ * for this doc; the TLS memo is already invalidated there. */
+void leptris_root_doc_unregister_doc(struct leptris_document* doc) {
+    if (!doc) return;
+    for (size_t b = 0; b < ROOT_DOC_BUCKETS; b++) {
+        RootDocEntry** pp = &g_root_doc_buckets[b];
+        while (*pp) {
+            if ((*pp)->doc == doc) {
+                RootDocEntry* freed = *pp;
+                *pp = freed->next;
+                freed->next = g_free_list;
+                g_free_list = freed;
+                rootmap_set(freed->root, 0);
+                continue;
+            }
+            pp = &(*pp)->next;
+        }
+    }
+}
+
 struct leptris_document* leptris_root_doc_lookup(LeptrisElement root) {
     if (!root) return NULL;
     size_t idx = bucket_index(root);

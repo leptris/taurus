@@ -908,6 +908,13 @@ LEPTRIS_API void leptris_document_free(struct leptris_document* doc) {
         extern void leptris_root_doc_unregister(LeptrisElement);
         leptris_root_doc_unregister((LeptrisElement)doc->new_dom_root);
     }
+    /* #1038: fallback-path registrations (detached elements) die
+     * with the doc too — see leptris_root_doc_unregister_doc. */
+    {
+        extern void leptris_root_doc_unregister_doc(
+            struct leptris_document*);
+        leptris_root_doc_unregister_doc(doc);
+    }
 
     /* Free owned XML buffer if present
      * For regular parsing, the document owns the buffer (copied during parsing)
