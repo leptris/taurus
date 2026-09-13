@@ -444,14 +444,36 @@ static inline void leptris_elem_split_qname(LeptrisElement e,
     if (!e || !e->name) return;
     char* colon = strchr(e->name, ':');
     if (!colon) return;
+    /* Lane 18 P1: read the doc backpointer BEFORE the split moves
+     * the name — then re-stamp it in a fresh slot so namebp
+     * resolution survives (public creates no longer register in
+     * the map; the re-stamp keeps prefixed elements resolvable
+     * while detached). */
+    struct leptris_document* bp_doc =
+        leptris_elem_has_namebp(e) ? leptris_elem_namebp_doc(e) : NULL;
     *colon = '\0';
     leptris_elem_set_prefix(e, e->name, pool);
     e->name = colon + 1;
-    /* The name moved into the name bytes: the Round-21 backpointer
-     * slot at name[-1] is no longer the doc — reading it would
-     * interpret name characters as a pointer. Register-on-create
-     * covers resolution; the flag must not outlive the slot. */
-    e->header.flags &= (uint8_t)(~LEPTRIS_NAMEBP_FLAG & 0xFFu);
+    if (bp_doc && pool) {
+        size_t keep_len = strlen(e->name);
+        char* slot = (char*)leptris_pool_alloc(
+            pool, sizeof(struct leptris_document*) + keep_len + 1);
+        if (slot) {
+            *(struct leptris_document**)slot = bp_doc;
+            memcpy(slot + sizeof(struct leptris_document*),
+                   e->name, keep_len);
+            slot[sizeof(struct leptris_document*) + keep_len] = '\0';
+            e->name = slot + sizeof(struct leptris_document*);
+        } else {
+            e->header.flags &=
+                (uint8_t)(~LEPTRIS_NAMEBP_FLAG & 0xFFu);
+        }
+    } else {
+        /* The name moved into the name bytes: the Round-21
+         * backpointer slot at name[-1] is no longer the doc — the
+         * flag must not outlive the slot. */
+        e->header.flags &= (uint8_t)(~LEPTRIS_NAMEBP_FLAG & 0xFFu);
+    }
     size_t local_len = strlen(e->name);
     e->name_len = (local_len > 254) ? 0xFF : (uint8_t)local_len;
     e->name_hash = leptris_name_hash_compute(e->name);
