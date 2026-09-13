@@ -1,19 +1,10 @@
 ## [Unreleased]
 
 ## [1.9.156] - 2026-09-13
-
-### Added
-
-- template cgroup drops + </template> pop-through (corpus 1200 -> 1206) (html)
-
 ### Fixed
 
-- document-death sweep never writes element headers (XInclude adopted pools) (dom)
-- ASAN-clean entry-death spec; sweep returns removal count (dom)
-- root-doc map entries die with their document (#1038) (dom)
-
-
-
+- **Heap corruption regression (#1038, v1.9.151-155): root-doc map entries now die with their document.** Two registration paths outlived their document — the pool-fallback creates (names > 254 bytes, carve failure) that register DETACHED elements, and the XInclude adopted-child free that nulls `new_dom_root` before recursing. After the doc died, a malloc-recycled element address resolved the FREED document through the stale entry and the engine wrote through its freed pool: roaming crashes in downstream binding suites at ~5% of runs. `document_free` now sweeps every map bucket for the document (never touching element headers — XInclude-adopted pools may already be gone). Validated: 100/100 clean full leptris-py suite runs post-fix (~5-7 expected crashes pre-fix); deterministic never-again specs `RootDocMapLifecycle.FallbackEntryDiesWithDocument` (RED pre-fix) and `RecycleLoopSurvives` (4000-iteration churn). The v1.9.151 perf rows (create 6.6ns, append 262us) are untouched — the sweep is once per document lifetime.
+- **HTML (WHATWG mode), carried from the untagged v1.9.155: three template-mode gaps** — (1) in-column-group on a template ignores every token but `col` starts (colgroup/div/non-whitespace text drop); (2) `</template>` inside `<select>` runs the in-head rules so the select's insertion point returns; (3) `</template>` matches only HTML-namespace templates and skips the integration-point fence (an SVG `<template>` is foreign content). html5lib corpus 1200 -> 1206; Nokogiri parity floor 784 held. (v1.9.155 was merged to main but its tag was skipped by a GitHub GraphQL incident; both slices ship here.)
 ## [1.9.155] - 2026-09-13
 ### Fixed
 
