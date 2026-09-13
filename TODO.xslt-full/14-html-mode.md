@@ -405,3 +405,14 @@ families. Corpus 1187 -> 1197, parity 784 held. Spec:
 TemplateInsertionModes. REMAINING template.dat reds (~14): select-
 in-table (22, 102), frameset/frame drops (41, 67, 93), misc rows
 (71-76), nested/head shapes (91, 106, 108), foreignObject (100).
+
+## Update 2026-09-13 (l): template frame/frameset drops — shipped
+## (floor 1200, +3)
+
+13.2.6.4.10 anything-else -> in-body: frame starts are ignored
+outright and frameset tokens vanish inside a template
+(template.dat 41/67/93 — content stays empty). WHATWG-gated in
+h_tmpl_content_start. Spec: TemplateFrameAndFramesetDrop. Parity
+784 held. REMAINING template.dat reds (~11): select-in-table (22,
+102), misc rows (71-76), nested/head shapes (91, 106, 108),
+foreignObject (100).

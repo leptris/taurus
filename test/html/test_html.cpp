@@ -1405,6 +1405,21 @@ TEST(HtmlParse, TemplateStartTagFence) {
               "</table>");
 }
 
+TEST(HtmlParse, TemplateFrameAndFramesetDrop) {
+    /* 13.2.6.4.10 anything-else -> in-body: frame start tags are
+     * ignored outright; frameset tokens inside a template vanish
+     * (html5lib template.dat:41/67/93 — content stays empty). */
+    EXPECT_EQ(Html("<template><frame></frame></frameset>"
+                   "<frame></frame></template>"),
+              "<html><head><template/></head><body/></html>");
+    EXPECT_EQ(Html("<html a=b><template><frame></frame><html b=c>"
+                   "<frame></frame></template>"),
+              "<html a=\"b\"><head><template/></head><body/></html>");
+    EXPECT_EQ(Html("<template><template><frame>"),
+              "<html><head><template><template/></template>"
+              "</head><body/></html>");
+}
+
 TEST(HtmlParse, TemplateInsertionModes) {
     /* The per-template insertion-mode machine (13.2.6.4.10 pushes
      * in-table/in-table-body/in-row; the reprocess chains decide

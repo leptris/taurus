@@ -2975,6 +2975,11 @@ static int h_tmpl_content_start(HBuilder* b, const char* name) {
                    strcmp(name, "tbody") == 0 ||
                    strcmp(name, "thead") == 0 ||
                    strcmp(name, "tfoot") == 0;
+    /* 13.2.6.4.10 anything-else -> in-body: frame start tags are
+     * ignored outright there, and frameset tokens vanish inside a
+     * template (html5lib template.dat:41/67/93). */
+    if (strcmp(name, "frame") == 0 || strcmp(name, "frameset") == 0)
+        return 1;
     if (!is_row && !is_cell && !is_col && !is_group) {
         if (b->tmpl_mode[ti] == H_TPLM_TEMPLATE) {
             /* 13.2.6.4.10: head-family tokens (base/basefont/bgsound/
