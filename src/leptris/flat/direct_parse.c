@@ -325,7 +325,7 @@ static inline int dp_add_attr_inline(DParser* p, LeptrisElement elem,
     }
 
     attr->name_view = leptris_sv_from_ptr(name, name_len);
-    attr->value_view = leptris_sv_from_ptr(val, val_len);
+    leptris_attr_value_set_heap(attr, leptris_sv_from_ptr(val, val_len));
     /* Round 19 packed tail: single name_hash store carries both the
      * lazy-hash sentinel (0) and the entity flag (bit 15). Entity
      * routing (has_amp from the caller's fused scan):
@@ -341,7 +341,7 @@ static inline int dp_add_attr_inline(DParser* p, LeptrisElement elem,
             char* expanded = leptris_decode_entities_view_with_dtd(
                 &dsv, p->dtd, p->pool);
             if (expanded) {
-                attr->value_view = leptris_sv_from_cstr(expanded);
+                leptris_attr_value_set_heap(attr, leptris_sv_from_cstr(expanded));
             } else {
                 ent = 1;
             }

@@ -355,7 +355,8 @@ static void collect_namespaces_recursive(XPathContext* context,
             if (!prefix) continue;
 
             /* Get value - convert attr value StringView to C string */
-            char* uri = leptris_sv_to_cstr(&attr->value_view);
+            LeptrisStringView uv = leptris_attr_value_sv(attr);
+            char* uri = leptris_sv_to_cstr(&uv);
             if (!uri) {
                 LEPTRIS_FREE(prefix);
                 continue;

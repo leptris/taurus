@@ -1355,9 +1355,11 @@ void serialize_element_internal(LeptrisElement root_elem, SerializeBuffer* buf, 
             if (attr_has_entities(attr)) {
                 struct leptris_document* d = leptris_element_get_document(e);
                 LeptrisMemoryPool* pool = d ? d->pool : NULL;
-                char* resolved = pool ? leptris_decode_entities_view(&attr->value_view, pool) : NULL;
+                LeptrisStringView av = leptris_attr_value_sv(attr);
+                char* resolved = pool
+                    ? leptris_decode_entities_view(&av, pool) : NULL;
                 if (resolved) {
-                    attr->value_view = leptris_sv_from_cstr(resolved);
+                    leptris_attr_value_set_heap(attr, leptris_sv_from_cstr(resolved));
                     attr_set_entities(attr, 0);
                 }
                 val = attr_cvalue(attr);
@@ -1378,7 +1380,7 @@ void serialize_element_internal(LeptrisElement root_elem, SerializeBuffer* buf, 
             }
             /* View length is authoritative (entity resolution
              * replaces the view) — same as the recursive path. */
-            size_t vlen = attr->value_view.length;
+            size_t vlen = leptris_attr_value_sv(attr).length;
             /* §16.2 html: href/src values percent-encode as URIs
              * (libxml2 htmlAttrDumpOutput, bug-83); apostrophes
              * stay raw (the XML serializer's &apos; is HTML-wrong). */

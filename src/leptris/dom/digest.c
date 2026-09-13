@@ -177,8 +177,8 @@ static uint64_t digest_element(LeptrisElement e, LeptrisDigestFlags flags) {
                 attrs[n].uri = uri;
                 attrs[n].local = local;
                 attrs[n].local_len = local_len;
-                attrs[n].value = a->value_view.data ? a->value_view.data : "";
-                attrs[n].value_len = a->value_view.length;
+                attrs[n].value = leptris_attr_value_sv(a).data ? leptris_attr_value_sv(a).data : "";
+                attrs[n].value_len = leptris_attr_value_sv(a).length;
                 n++;
             }
             qsort(attrs, n, sizeof(DigestAttr), digest_attr_cmp);

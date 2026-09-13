@@ -1148,13 +1148,13 @@ static void finalize_element_strings(LeptrisElement elem, LeptrisMemoryPool* poo
         /* Single representation (round 4): entity values expand INTO
          * the view (owned pool copy); everything else already reads
          * correctly from the zero-copy view. */
-        if (attr_has_entities(attr) &&
-            !leptris_sv_is_empty(&attr->value_view)) {
-            if ((uintptr_t)attr->value_view.data >= 0x1000) {
+        LeptrisStringView ev = leptris_attr_value_sv(attr);
+        if (attr_has_entities(attr) && !leptris_sv_is_empty(&ev)) {
+            if ((uintptr_t)ev.data >= 0x1000) {
                 char* expanded =
-                    leptris_decode_entities_view(&attr->value_view, pool);
+                    leptris_decode_entities_view(&ev, pool);
                 if (expanded) {
-                    attr->value_view = leptris_sv_from_cstr(expanded);
+                    leptris_attr_value_set_heap(attr, leptris_sv_from_cstr(expanded));
                     attr_set_entities(attr, 0);
                 }
             }

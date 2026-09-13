@@ -38,7 +38,7 @@ struct leptris_attribute* leptris_attribute_new(const char* name, const char* va
             free(attr);
             return NULL;
         }
-        attr->value_view = leptris_sv_from_cstr(value_copy);
+        leptris_attr_value_set_heap(attr, leptris_sv_from_cstr(value_copy));
     }
 
     return attr;
@@ -57,7 +57,7 @@ void leptris_attribute_free(struct leptris_attribute* attr) {
         if (nsc->namespace_uri) free(nsc->namespace_uri);
         free(nsc);
     }
-    free((void*)(uintptr_t)attr->value_view.data);
+    free((void*)(uintptr_t)leptris_attr_value_sv(attr).data);
 
     free(attr);
 }

@@ -263,11 +263,12 @@ static void c14n_serialize_element(LeptrisElement elem, char** buffer, size_t* s
              * that this loop frees. */
             const char* attr_value;
             int attr_value_owned = 0;
-            if (attr_has_entities(attr) && !leptris_sv_is_empty(&attr->value_view)) {
+            LeptrisStringView av = leptris_attr_value_sv(attr);
+            if (attr_has_entities(attr) && !leptris_sv_is_empty(&av)) {
                 /* Use lenient mode for C14N to handle edge cases like "&" in attributes */
                 int old_strict = leptris_get_strict_mode();
                 leptris_set_strict_mode(0);  /* Enable lenient mode */
-                attr_value = leptris_decode_entities_view(&attr->value_view, NULL);
+                attr_value = leptris_decode_entities_view(&av, NULL);
                 leptris_set_strict_mode(old_strict);  /* Restore strict mode */
                 attr_value_owned = (attr_value != NULL);
             } else {
@@ -737,8 +738,9 @@ static void c14n_serialize_element_excl(LeptrisElement elem,
                  * temporary this loop frees; others read the view. */
                 const char* av = NULL;
                 int av_owned = 0;
-                if (attr_has_entities(a) && !leptris_sv_is_empty(&a->value_view)) {
-                    av = leptris_decode_entities_view(&a->value_view, NULL);
+                LeptrisStringView av2 = leptris_attr_value_sv(a);
+                if (attr_has_entities(a) && !leptris_sv_is_empty(&av2)) {
+                    av = leptris_decode_entities_view(&av2, NULL);
                     av_owned = (av != NULL);
                 }
                 if (!av) av = attr_cvalue(a);
